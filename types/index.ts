@@ -1,29 +1,27 @@
-export interface Tenant {
+export type TenantRole = "tenant_admin" | "tenant_staff";
+
+export interface Plan {
   id: string;
   name: string;
-  slug: string;
-  domain: string | null;
-  logo_url: string | null;
-  brand_color: string | null;
   description: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
-  address: string | null;
-  delivery_settings: Record<string, unknown> | null;
-  payment_methods: string[] | null;
-  locale: string;
-  currency: string;
+  price_monthly: number;
+  product_limit: number;
+  order_limit: number;
+  storage_limit_bytes: number;
+  features: Record<string, unknown>;
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export interface TenantMember {
+export interface Tenant {
   id: string;
-  tenant_id: string;
-  user_id: string;
-  role: "tenant_admin" | "tenant_staff";
-  permissions: string[] | null;
+  name: string;
+  slug: string;
+  subdomain: string | null;
+  custom_domain: string | null;
+  settings: Record<string, unknown>;
+  plan_id: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -34,8 +32,38 @@ export interface Profile {
   name: string | null;
   email: string | null;
   avatar_url: string | null;
+  default_tenant_id: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface TenantMember {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  role: TenantRole;
+  is_active: boolean;
+  invited_by: string | null;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TenantInvitation {
+  id: string;
+  tenant_id: string;
+  email: string;
+  role: TenantRole;
+  token: string;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+}
+
+export interface SuperAdmin {
+  user_id: string;
+  created_at: string;
 }
 
 export interface Product {
