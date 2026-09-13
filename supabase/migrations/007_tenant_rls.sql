@@ -52,6 +52,10 @@ create policy "Users can read their own memberships"
   on public.tenant_members for select to authenticated
   using (user_id = auth.uid());
 
+create policy "Users can insert their own membership"
+  on public.tenant_members for insert to authenticated
+  with check (user_id = auth.uid());
+
 create policy "Super admins can manage tenant invitations"
   on public.tenant_invitations for all to authenticated
   using (public.is_super_admin()) with check (public.is_super_admin());

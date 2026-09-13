@@ -1,26 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-/**
- * Middleware responsibilities (to be implemented in future modules):
- *
- * 1. Tenant resolution:
- *    - Subdomain: tenant.storefy.com
- *    - Path: /store/[tenant]
- *
- * 2. Authentication:
- *    - Refresh Supabase auth session cookies
- *    - Protect admin/platform routes
- *
- * 3. Authorization:
- *    - Validate tenant membership for tenant-scoped routes
- *    - Validate super_admin access for platform routes
- *
- * 4. Rate limiting:
- *    - Apply rate limits per tenant/identifier for sensitive routes
- *
- * Current state: placeholder that refreshes auth sessions.
- */
+const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password", "/verify-email"];
+const PROTECTED_ROUTES = ["/admin", "/platform", "/dashboard"];
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -45,13 +28,25 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Future: tenant resolution and membership checks will go here
+  const path = request.nextUrl.pathname;
+
+  if (user && AUTH_ROUTES.some((route) => path.startsWith(route))) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  if (!user && PROTECTED_ROUTES.some((route) => path.startsWith(route))) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  await supabase.auth.getSession();
 
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth).*)"],
 };
