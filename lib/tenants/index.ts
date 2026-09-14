@@ -53,56 +53,35 @@ export async function createTenantForUser(
 ): Promise<Tenant> {
   const supabase = await createClient();
 
-  // Start a transaction by creating the tenant and membership
-  // Note: This is not a true transaction, but the RLS policies will enforce constraints
+  // Use SECURITY DEFINER RPC for atomic tenant creation.
+  // The function derives the user ID from auth.uid() internally,
+  // but we pass it for API consistency and logging purposes.
+  const { data: tenantId, error: rpcError } = await supabase.rpc(
+    'create_tenant_for_user',
+    {
+      p_name: tenantName,
+      p_slug: tenantSlug,
+      p_plan_id: planId,
+    }
+  );
 
-  // 1. Create the tenant
-  const { data: tenant, error: tenantError } = await supabase
-    .from('tenants')
-    .insert({
-      name: tenantName,
-      slug: tenantSlug,
-      plan_id: planId,
-      settings: {
-        display_name: tenantName,
-        description: '',
-        contact_email: null,
-        contact_phone: null,
-        address: null,
-        currency: 'USD',
-        timezone: 'UTC',
-        logo_url: null,
-        favicon_url: null,
-      },
-    })
-    .select()
-    .single();
-
-  if (tenantError || !tenant) {
-    throw new Error(`Failed to create tenant: ${tenantError?.message}`);
-  }
-
-  // 2. Create the tenant membership
-  const { error: memberError } = await supabase.from('tenant_members').insert({
-    tenant_id: tenant.id,
-    user_id: userId,
-    role: 'tenant_admin',
-  });
-
-  if (memberError) {
+  if (rpcError || !tenantId) {
     throw new Error(
-      `Failed to create tenant membership: ${memberError.message}`
+      `Failed to create tenant: ${rpcError?.message ?? 'Unknown error'}`
     );
   }
 
-  // 3. Update the user's default_tenant_id
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .update({ default_tenant_id: tenant.id })
-    .eq('id', userId);
+  // Fetch the created tenant to return the full record
+  const { data: tenant, error: fetchError } = await supabase
+    .from('tenants')
+    .select('*')
+    .eq('id', tenantId)
+    .single();
 
-  if (profileError) {
-    throw new Error(`Failed to set default tenant: ${profileError.message}`);
+  if (fetchError || !tenant) {
+    throw new Error(
+      `Failed to fetch created tenant: ${fetchError?.message ?? 'Unknown error'}`
+    );
   }
 
   return tenant;
@@ -156,12 +135,23 @@ export async function updateTenantSettings(
 ): Promise<Tenant> {
   const supabase = await createClient();
 
+  const { name, ...settingsUpdates } = updates as { name?: string } & Record<string, unknown>;
+
+  const updatePayload: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (name !== undefined) {
+    updatePayload.name = name;
+  }
+
+  if (Object.keys(settingsUpdates).length > 0) {
+    updatePayload.settings = settingsUpdates;
+  }
+
   const { data: tenant, error } = await supabase
     .from('tenants')
-    .update({
-      settings: updates,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', tenantId)
     .select()
     .single();

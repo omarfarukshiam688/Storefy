@@ -1,15 +1,22 @@
+import { redirect } from 'next/navigation';
+import { requireAuthUser } from '@/lib/auth/session';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { DashboardHeader } from '@/components/auth/dashboard-header';
 import Link from 'next/link';
 import { Settings, Package, ShoppingCart, Users } from 'lucide-react';
 
 export default async function DashboardPage() {
+  try {
+    await requireAuthUser();
+  } catch {
+    redirect('/login');
+  }
+
   let context;
   try {
     context = await getTenantContext();
   } catch {
-    // This should not happen because layout already checked auth
-    return null;
+    redirect('/dashboard/onboarding');
   }
 
   return (

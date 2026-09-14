@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { updateTenantSettingsSchema } from '@/lib/validation/tenant';
+import { updateTenantSettingsSchema, updateTenantSlugSchema } from '@/lib/validation/tenant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +18,7 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formData, setFormData] = React.useState({
     name: tenant.name || '',
+    slug: tenant.slug || '',
     description: (tenant.settings?.description as string) || '',
     contact_email: (tenant.settings?.contact_email as string) || '',
     contact_phone: (tenant.settings?.contact_phone as string) || '',
@@ -43,11 +44,13 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
     setErrors({});
 
     try {
-      const validated = updateTenantSettingsSchema.safeParse(formData);
+      const { slug, ...settingsData } = formData;
 
-      if (!validated.success) {
+      // Validate settings (excluding slug)
+      const validatedSettings = updateTenantSettingsSchema.safeParse(settingsData);
+      if (!validatedSettings.success) {
         const fieldErrors: Record<string, string> = {};
-        for (const issue of validated.error.issues) {
+        for (const issue of validatedSettings.error.issues) {
           fieldErrors[issue.path[0] as string] = issue.message;
         }
         setErrors(fieldErrors);
@@ -55,22 +58,45 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
         return;
       }
 
-      // Merge with existing settings
-      const updatePayload = {
-        ...validated.data,
-      };
-
-      const response = await fetch(`/api/tenants/${tenant.id}/settings`, {
+      // Update settings
+      const settingsResponse = await fetch(`/api/tenants/${tenant.id}/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatePayload),
+        body: JSON.stringify(validatedSettings.data),
       });
 
-      if (!response.ok) {
-        const result = await response.json();
+      if (!settingsResponse.ok) {
+        const result = await settingsResponse.json();
         toast.error(result.error || 'Failed to save settings');
         setIsSubmitting(false);
         return;
+      }
+
+      // Update slug if changed
+      if (slug !== tenant.slug) {
+        const slugValidated = updateTenantSlugSchema.safeParse({ slug });
+        if (!slugValidated.success) {
+          const fieldErrors: Record<string, string> = {};
+          for (const issue of slugValidated.error.issues) {
+            fieldErrors[issue.path[0] as string] = issue.message;
+          }
+          setErrors(fieldErrors);
+          setIsSubmitting(false);
+          return;
+        }
+
+        const slugResponse = await fetch(`/api/tenants/${tenant.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: slugValidated.data.slug }),
+        });
+
+        if (!slugResponse.ok) {
+          const result = await slugResponse.json();
+          toast.error(result.error || 'Failed to update store URL');
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       toast.success('Settings saved successfully!');
@@ -85,23 +111,49 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      {/* Store Name */}
-      <div className="space-y-2.5">
-        <Label htmlFor="name" className="text-sm font-semibold">
-          Store name
-        </Label>
-        <Input
-          id="name"
-          name="name"
-          type="text"
-          value={formData.name}
-          onChange={handleChange}
-          disabled={isSubmitting}
-          className="h-11 px-4 text-base"
-        />
-        {errors.name && (
-          <p className="text-sm font-medium text-destructive">{errors.name}</p>
-        )}
+      {/* Store Identity */}
+      <div className="space-y-4">
+        <h3 className="text-base font-semibold">Store identity</h3>
+
+        <div className="space-y-2.5">
+          <Label htmlFor="name" className="text-sm font-semibold">
+            Store name
+          </Label>
+          <Input
+            id="name"
+            name="name"
+            type="text"
+            value={formData.name}
+            onChange={handleChange}
+            disabled={isSubmitting}
+            className="h-11 px-4 text-base"
+          />
+          {errors.name && (
+            <p className="text-sm font-medium text-destructive">{errors.name}</p>
+          )}
+        </div>
+
+        <div className="space-y-2.5">
+          <Label htmlFor="slug" className="text-sm font-semibold">
+            Store URL slug
+          </Label>
+          <Input
+            id="slug"
+            name="slug"
+            type="text"
+            value={formData.slug}
+            onChange={handleChange}
+            disabled={isSubmitting}
+            className="h-11 px-4 text-base"
+            placeholder="my-store"
+          />
+          <p className="text-xs text-muted-foreground">
+            Used in your store URL. Changes may affect existing links.
+          </p>
+          {errors.slug && (
+            <p className="text-sm font-medium text-destructive">{errors.slug}</p>
+          )}
+        </div>
       </div>
 
       {/* Description */}

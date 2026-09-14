@@ -15,34 +15,71 @@ export default function OnboardingPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [slugAvailable, setSlugAvailable] = React.useState<boolean | null>(
-    null
+    false
   );
   const [defaultPlanId, setDefaultPlanId] = React.useState<string | null>(null);
-  const slugCheckTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  const formRef = React.useRef<HTMLFormElement>(null);
+  const [planError, setPlanError] = React.useState<string | null>(null);
 
   // Fetch default plan on mount
   React.useEffect(() => {
     const fetchDefaultPlan = async () => {
       try {
         const supabase = createClient();
+
+        // Verify browser-side auth before querying plans
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        console.log('[onboarding] browser auth check', {
+          hasUser: !!user,
+          userId: user?.id,
+          authError: authError?.message,
+          authErrorCode: authError?.code,
+        });
+
+        // Use .limit(1) without .single() so that an empty result
+        // is treated as "no plans" instead of a PostgREST 406 error.
         const { data, error } = await supabase
           .from('plans')
           .select('id')
           .eq('is_active', true)
           .order('price_monthly', { ascending: true })
-          .limit(1)
-          .single();
+          .limit(1);
 
-        if (error || !data) {
-          throw new Error('No active plans found');
+        console.log('[onboarding] plans query result', {
+          data,
+          errorMessage: error?.message,
+          errorCode: error?.code,
+          errorDetails: error?.details,
+          errorHint: error?.hint,
+        });
+
+        if (error) {
+          console.error('[onboarding] plans query failed', error);
+          setPlanError(
+            error.message || 'Failed to load plans. Please try again later.'
+          );
+          return;
         }
 
-        setDefaultPlanId(data.id);
+        const plan = data?.[0];
+        if (!plan) {
+          console.warn('[onboarding] no active plans found');
+          setPlanError('No active plans available. Please contact support.');
+          return;
+        }
+
+        setDefaultPlanId(plan.id);
+        setPlanError(null);
       } catch (err) {
-        console.error('Failed to fetch default plan:', err);
-        toast.error('Failed to load plans. Please try again later.');
+        console.error('[onboarding] unexpected plan fetch error:', err);
+        setPlanError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to load plans. Please try again later.'
+        );
       }
     };
 
@@ -51,27 +88,21 @@ export default function OnboardingPage() {
 
   // Check slug availability with debounce
   const checkSlugAvailability = React.useCallback(async (slug: string) => {
-    if (slugCheckTimeoutRef.current) {
-      clearTimeout(slugCheckTimeoutRef.current);
-    }
-
     if (!slug || slug.length < 3) {
       setSlugAvailable(null);
       return;
     }
 
-    slugCheckTimeoutRef.current = setTimeout(async () => {
-      try {
-        const response = await fetch(
-          `/api/tenants/check-slug?slug=${encodeURIComponent(slug)}`
-        );
-        const data = await response.json();
-        setSlugAvailable(data.available);
-      } catch (error) {
-        console.error('Slug check error:', error);
-        setSlugAvailable(null);
-      }
-    }, 500);
+    try {
+      const response = await fetch(
+        `/api/tenants/check-slug?slug=${encodeURIComponent(slug)}`
+      );
+      const data = await response.json();
+      setSlugAvailable(data.available);
+    } catch (error) {
+      console.error('Slug check error:', error);
+      setSlugAvailable(null);
+    }
   }, []);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -136,6 +167,38 @@ export default function OnboardingPage() {
     }
   }
 
+  if (planError) {
+    return (
+      <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md text-center">
+            <div className="flex justify-center mb-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                <Store className="h-6 w-6" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight mb-2">
+              Unable to load plans
+            </h1>
+            <p className="text-sm text-muted-foreground mb-6">
+              {planError}
+            </p>
+            <Button
+              onClick={() => {
+                setPlanError(null);
+                setDefaultPlanId(null);
+                window.location.reload();
+              }}
+              className="w-full h-11"
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!defaultPlanId) {
     return (
       <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100 items-center justify-center">
@@ -164,7 +227,7 @@ export default function OnboardingPage() {
           </div>
 
           {/* Form */}
-          <form ref={formRef} onSubmit={onSubmit} className="space-y-6">
+          <form onSubmit={onSubmit} className="space-y-6">
             {/* Store Name */}
             <div className="space-y-2.5">
               <Label htmlFor="name" className="text-sm font-semibold">
