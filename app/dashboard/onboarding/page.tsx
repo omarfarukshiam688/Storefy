@@ -9,9 +9,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Store } from 'lucide-react';
+import { useTenant } from '@/hooks/use-tenant';
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { activeTenant, isLoading } = useTenant();
+
+  React.useEffect(() => {
+    if (!isLoading && activeTenant) {
+      router.push('/dashboard');
+    }
+  }, [activeTenant, isLoading, router]);
+
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [slugAvailable, setSlugAvailable] = React.useState<boolean | null>(
@@ -165,6 +174,14 @@ export default function OnboardingPage() {
       toast.error('An error occurred. Please try again.');
       setIsSubmitting(false);
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100 items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
   }
 
   if (planError) {

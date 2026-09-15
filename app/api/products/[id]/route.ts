@@ -1,0 +1,74 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getTenantContext } from '@/lib/auth/tenant';
+import { getProduct, updateProduct, archiveProduct, restoreProduct } from '@/lib/products';
+import { updateProductSchema } from '@/lib/validation/product';
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const context = await getTenantContext();
+    if (!context.activeTenant) {
+      return NextResponse.json({ error: 'No active tenant' }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const product = await getProduct(context.activeTenant.id, id);
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error('Product fetch error:', error);
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === 'Product not found') {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+    return NextResponse.json({ error: 'Failed to fetch product' }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const context = await getTenantContext();
+    if (!context.activeTenant) {
+      return NextResponse.json({ error: 'No active tenant' }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const body = await req.json();
+
+    if (body.is_active === false && (body.is_active === true || Object.keys(body).length === 1)) {
+      const product = await archiveProduct(context.activeTenant.id, id);
+      return NextResponse.json(product);
+    }
+
+    if (body.is_active === true && Object.keys(body).length === 1) {
+      const product = await restoreProduct(context.activeTenant.id, id);
+      return NextResponse.json(product);
+    }
+
+    const validated = updateProductSchema.safeParse(body);
+    if (!validated.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validated.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const product = await updateProduct(context.activeTenant.id, id, validated.data);
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error('Product update error:', error);
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof Error && (error.message === 'Product not found')) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to update product' }, { status: 500 });
+  }
+}

@@ -12,10 +12,9 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  let context;
-  try {
-    context = await getTenantContext();
-  } catch {
+  const context = await getTenantContext();
+
+  if (!context.activeTenant) {
     redirect('/dashboard/onboarding');
   }
 
@@ -63,19 +62,21 @@ export default async function DashboardPage() {
               </Link>
             )}
 
-            <div className="rounded-lg border border-border bg-card p-6 opacity-50 cursor-not-allowed h-full">
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
-                  <Package className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Products</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Coming in Module 5
-                  </p>
+            <Link href="/dashboard/products">
+              <div className="rounded-lg border border-border bg-card p-6 hover:border-primary hover:shadow-sm transition-all cursor-pointer h-full">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
+                    <Package className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Products</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Manage your product catalog
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            </Link>
 
             <div className="rounded-lg border border-border bg-card p-6 opacity-50 cursor-not-allowed h-full">
               <div className="flex items-center gap-4">

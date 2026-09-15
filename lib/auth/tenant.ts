@@ -31,7 +31,22 @@ export async function getTenantContext(): Promise<TenantContext> {
     throw new AuthError("Profile not found");
   }
 
-  if (!profile.default_tenant_id) {
+  let tenantId = profile.default_tenant_id;
+
+  if (!tenantId) {
+    const { data: fallbackMembership } = await supabase
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    tenantId = fallbackMembership?.tenant_id ?? null;
+  }
+
+  if (!tenantId) {
     return {
       profile,
       activeTenant: null,
@@ -43,7 +58,7 @@ export async function getTenantContext(): Promise<TenantContext> {
   const { data: membership } = await supabase
     .from("tenant_members")
     .select("*")
-    .eq("tenant_id", profile.default_tenant_id)
+    .eq("tenant_id", tenantId)
     .eq("user_id", user.id)
     .eq("is_active", true)
     .maybeSingle();
@@ -51,14 +66,70 @@ export async function getTenantContext(): Promise<TenantContext> {
   const { data: tenant } = await supabase
     .from("tenants")
     .select("*")
-    .eq("id", profile.default_tenant_id)
+    .eq("id", tenantId)
     .maybeSingle();
+
+  if (!tenant || !membership) {
+    const { data: fallbackMembership } = await supabase
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    const fallbackTenantId = fallbackMembership?.tenant_id ?? null;
+
+    if (!fallbackTenantId) {
+      return {
+        profile,
+        activeTenant: null,
+        membership: null,
+        role: null,
+      };
+    }
+
+    const [fallbackMembershipResult, fallbackTenantResult] = await Promise.all([
+      supabase
+        .from("tenant_members")
+        .select("*")
+        .eq("tenant_id", fallbackTenantId)
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .maybeSingle(),
+      supabase
+        .from("tenants")
+        .select("*")
+        .eq("id", fallbackTenantId)
+        .maybeSingle(),
+    ]);
+
+    const fallbackMembershipData = fallbackMembershipResult.data;
+    const fallbackTenantData = fallbackTenantResult.data;
+
+    if (!fallbackTenantData || !fallbackMembershipData) {
+      return {
+        profile,
+        activeTenant: null,
+        membership: null,
+        role: null,
+      };
+    }
+
+    return {
+      profile,
+      activeTenant: fallbackTenantData,
+      membership: fallbackMembershipData,
+      role: fallbackMembershipData.role as "tenant_admin" | "tenant_staff",
+    };
+  }
 
   return {
     profile,
     activeTenant: tenant,
     membership,
-    role: (membership?.role as "tenant_admin" | "tenant_staff") ?? null,
+    role: membership.role as "tenant_admin" | "tenant_staff",
   };
 }
 
