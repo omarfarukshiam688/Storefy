@@ -44,8 +44,8 @@ export function ProductFilters({ categories }: ProductFiltersProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-3">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <DebouncedSearchInput
             defaultValue={search}
@@ -56,7 +56,7 @@ export function ProductFilters({ categories }: ProductFiltersProps) {
         <select
           value={categoryId}
           onChange={(e) => updateParam('category_id', e.target.value)}
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent"
+          className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent lg:w-auto"
         >
           <option value="">All categories</option>
           {categories.map((category) => (
@@ -69,7 +69,7 @@ export function ProductFilters({ categories }: ProductFiltersProps) {
         <select
           value={isActive}
           onChange={(e) => updateParam('is_active', e.target.value)}
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent"
+          className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent lg:w-auto"
         >
           <option value="">All statuses</option>
           <option value="true">Active</option>
@@ -79,7 +79,7 @@ export function ProductFilters({ categories }: ProductFiltersProps) {
         <select
           value={isFeatured}
           onChange={(e) => updateParam('is_featured', e.target.value)}
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent"
+          className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent lg:w-auto"
         >
           <option value="">All products</option>
           <option value="true">Featured</option>
@@ -96,7 +96,7 @@ export function ProductFilters({ categories }: ProductFiltersProps) {
             params.set('page', '1');
             router.push(`${pathname}?${params.toString()}`);
           }}
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent"
+          className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent lg:w-auto"
         >
           <option value="created_at-desc">Newest</option>
           <option value="created_at-asc">Oldest</option>
@@ -113,7 +113,7 @@ export function ProductFilters({ categories }: ProductFiltersProps) {
             variant="ghost"
             size="sm"
             onClick={clearFilters}
-            className="h-10 px-3 text-sm"
+            className="h-10 px-3 text-sm lg:w-auto w-full justify-start"
           >
             <X className="h-4 w-4 mr-1.5" />
             Clear

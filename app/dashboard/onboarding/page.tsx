@@ -29,27 +29,11 @@ export default function OnboardingPage() {
   const [defaultPlanId, setDefaultPlanId] = React.useState<string | null>(null);
   const [planError, setPlanError] = React.useState<string | null>(null);
 
-  // Fetch default plan on mount
   React.useEffect(() => {
     const fetchDefaultPlan = async () => {
       try {
         const supabase = createClient();
 
-        // Verify browser-side auth before querying plans
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        console.log('[onboarding] browser auth check', {
-          hasUser: !!user,
-          userId: user?.id,
-          authError: authError?.message,
-          authErrorCode: authError?.code,
-        });
-
-        // Use .limit(1) without .single() so that an empty result
-        // is treated as "no plans" instead of a PostgREST 406 error.
         const { data, error } = await supabase
           .from('plans')
           .select('id')
@@ -57,16 +41,7 @@ export default function OnboardingPage() {
           .order('price_monthly', { ascending: true })
           .limit(1);
 
-        console.log('[onboarding] plans query result', {
-          data,
-          errorMessage: error?.message,
-          errorCode: error?.code,
-          errorDetails: error?.details,
-          errorHint: error?.hint,
-        });
-
         if (error) {
-          console.error('[onboarding] plans query failed', error);
           setPlanError(
             error.message || 'Failed to load plans. Please try again later.'
           );
@@ -75,7 +50,6 @@ export default function OnboardingPage() {
 
         const plan = data?.[0];
         if (!plan) {
-          console.warn('[onboarding] no active plans found');
           setPlanError('No active plans available. Please contact support.');
           return;
         }
@@ -83,7 +57,6 @@ export default function OnboardingPage() {
         setDefaultPlanId(plan.id);
         setPlanError(null);
       } catch (err) {
-        console.error('[onboarding] unexpected plan fetch error:', err);
         setPlanError(
           err instanceof Error
             ? err.message
@@ -95,7 +68,6 @@ export default function OnboardingPage() {
     fetchDefaultPlan();
   }, []);
 
-  // Check slug availability with debounce
   const checkSlugAvailability = React.useCallback(async (slug: string) => {
     if (!slug || slug.length < 3) {
       setSlugAvailable(null);
@@ -133,7 +105,6 @@ export default function OnboardingPage() {
         plan_id: defaultPlanId,
       };
 
-      // Validate
       const validated = createTenantSchema.safeParse(rawData);
       if (!validated.success) {
         const fieldErrors: Record<string, string> = {};
@@ -145,14 +116,12 @@ export default function OnboardingPage() {
         return;
       }
 
-      // Check slug availability before submitting
       if (slugAvailable === false) {
         setErrors({ slug: 'This slug is already taken' });
         setIsSubmitting(false);
         return;
       }
 
-      // Submit
       const response = await fetch('/api/tenants/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -178,7 +147,7 @@ export default function OnboardingPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100 items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
@@ -186,31 +155,29 @@ export default function OnboardingPage() {
 
   if (planError) {
     return (
-      <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
-          <div className="w-full max-w-md text-center">
-            <div className="flex justify-center mb-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
-                <Store className="h-6 w-6" />
-              </div>
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="w-full max-w-md text-center">
+          <div className="flex justify-center mb-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+              <Store className="h-6 w-6" />
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight mb-2">
-              Unable to load plans
-            </h1>
-            <p className="text-sm text-muted-foreground mb-6">
-              {planError}
-            </p>
-            <Button
-              onClick={() => {
-                setPlanError(null);
-                setDefaultPlanId(null);
-                window.location.reload();
-              }}
-              className="w-full h-11"
-            >
-              Retry
-            </Button>
           </div>
+          <h1 className="text-2xl font-semibold tracking-tight mb-2">
+            Unable to load plans
+          </h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            {planError}
+          </p>
+          <Button
+            onClick={() => {
+              setPlanError(null);
+              setDefaultPlanId(null);
+              window.location.reload();
+            }}
+            className="w-full h-11"
+          >
+            Retry
+          </Button>
         </div>
       </div>
     );
@@ -218,107 +185,103 @@ export default function OnboardingPage() {
 
   if (!defaultPlanId) {
     return (
-      <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100 items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
-        <div className="w-full max-w-md">
-          {/* Header */}
-          <div className="mb-10 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                <Store className="h-6 w-6" />
-              </div>
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight mb-2">
-              Welcome to Storefy
-            </h1>
-            <p className="text-base text-muted-foreground">
-              Let&apos;s create your online store in a few quick steps
-            </p>
+    <div className="mx-auto max-w-md">
+      {/* Header */}
+      <div className="mb-10 text-center">
+        <div className="flex justify-center mb-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <Store className="h-6 w-6" />
           </div>
-
-          {/* Form */}
-          <form onSubmit={onSubmit} className="space-y-6">
-            {/* Store Name */}
-            <div className="space-y-2.5">
-              <Label htmlFor="name" className="text-sm font-semibold">
-                Store name
-              </Label>
-              <Input
-                id="name"
-                name="name"
-                type="text"
-                placeholder="e.g., My Awesome Store"
-                disabled={isSubmitting}
-                className="h-11 px-4 text-base"
-              />
-              {errors.name && (
-                <p className="text-sm font-medium text-destructive">
-                  {errors.name}
-                </p>
-              )}
-            </div>
-
-            {/* Store Slug */}
-            <div className="space-y-2.5">
-              <Label htmlFor="slug" className="text-sm font-semibold">
-                Store URL slug
-              </Label>
-              <div className="space-y-1">
-                <Input
-                  id="slug"
-                  name="slug"
-                  type="text"
-                  placeholder="e.g., my-awesome-store"
-                  disabled={isSubmitting}
-                  className="h-11 px-4 text-base"
-                  onChange={(e) =>
-                    checkSlugAvailability(e.target.value.toLowerCase())
-                  }
-                />
-                {slugAvailable === true && (
-                  <p className="text-xs text-green-600 font-medium">
-                    ✓ Slug available
-                  </p>
-                )}
-                {slugAvailable === false && (
-                  <p className="text-xs text-destructive font-medium">
-                    ✗ Slug already taken
-                  </p>
-                )}
-              </div>
-              {errors.slug && (
-                <p className="text-sm font-medium text-destructive">
-                  {errors.slug}
-                </p>
-              )}
-            </div>
-
-            {/* Info text */}
-            <div className="rounded-lg bg-blue-50 p-4">
-              <p className="text-sm text-blue-900">
-                You can customize your store name and settings anytime from the
-                admin dashboard.
-              </p>
-            </div>
-
-            {/* Submit */}
-            <Button
-              type="submit"
-              className="w-full h-11 text-base font-semibold"
-              disabled={isSubmitting || slugAvailable === false}
-            >
-              {isSubmitting ? 'Creating store...' : 'Create store'}
-            </Button>
-          </form>
         </div>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">
+          Welcome to Storefy
+        </h1>
+        <p className="text-base text-muted-foreground">
+          Let&apos;s create your online store in a few quick steps
+        </p>
       </div>
+
+      {/* Form */}
+      <form onSubmit={onSubmit} className="space-y-6">
+        {/* Store Name */}
+        <div className="space-y-2.5">
+          <Label htmlFor="name" className="text-sm font-semibold">
+            Store name
+          </Label>
+          <Input
+            id="name"
+            name="name"
+            type="text"
+            placeholder="e.g., My Awesome Store"
+            disabled={isSubmitting}
+            className="h-11 px-4 text-base"
+          />
+          {errors.name && (
+            <p className="text-sm font-medium text-destructive">
+              {errors.name}
+            </p>
+          )}
+        </div>
+
+        {/* Store Slug */}
+        <div className="space-y-2.5">
+          <Label htmlFor="slug" className="text-sm font-semibold">
+            Store URL slug
+          </Label>
+          <div className="space-y-1">
+            <Input
+              id="slug"
+              name="slug"
+              type="text"
+              placeholder="e.g., my-awesome-store"
+              disabled={isSubmitting}
+              className="h-11 px-4 text-base"
+              onChange={(e) =>
+                checkSlugAvailability(e.target.value.toLowerCase())
+              }
+            />
+            {slugAvailable === true && (
+              <p className="text-xs text-emerald-600 font-medium">
+                Slug available
+              </p>
+            )}
+            {slugAvailable === false && (
+              <p className="text-xs text-destructive font-medium">
+                Slug already taken
+              </p>
+            )}
+          </div>
+          {errors.slug && (
+            <p className="text-sm font-medium text-destructive">
+              {errors.slug}
+            </p>
+          )}
+        </div>
+
+        {/* Info text */}
+        <div className="rounded-xl border border-sky-200 bg-sky-50/80 p-4">
+          <p className="text-sm text-sky-900">
+            You can customize your store name and settings anytime from the
+            admin dashboard.
+          </p>
+        </div>
+
+        {/* Submit */}
+        <Button
+          type="submit"
+          className="w-full h-11 text-base font-semibold"
+          disabled={isSubmitting || slugAvailable === false}
+        >
+          {isSubmitting ? 'Creating store...' : 'Create store'}
+        </Button>
+      </form>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { listProducts, listCategories } from '@/lib/products';
-import { DashboardHeader } from '@/components/auth/dashboard-header';
 import { ProductsPageClient } from '@/components/admin/products-page-client';
 
 export default async function ProductsPage({
@@ -32,19 +31,12 @@ export default async function ProductsPage({
   ]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <DashboardHeader profileName={context.profile.name} />
-      <main className="flex-1 p-6">
-        <div className="mx-auto max-w-7xl">
-          <ProductsPageClient
-            initialProducts={productsResult.products}
-            initialCategories={categories}
-            initialTotal={productsResult.total}
-            initialPage={productsResult.page}
-            initialTotalPages={productsResult.total_pages}
-          />
-        </div>
-      </main>
-    </div>
+    <ProductsPageClient
+      initialProducts={productsResult.products}
+      initialCategories={categories}
+      initialTotal={productsResult.total}
+      initialPage={productsResult.page}
+      initialTotalPages={productsResult.total_pages}
+    />
   );
 }

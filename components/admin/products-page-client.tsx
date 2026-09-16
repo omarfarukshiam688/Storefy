@@ -120,7 +120,7 @@ export function ProductsPageClient({
 
       {/* Empty state */}
       {page === 1 && products.length === 0 && total === 0 && (
-        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-12 text-center">
+        <div className="rounded-xl border border-dashed border-border bg-muted/30 p-8 sm:p-12 text-center">
           <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-base font-semibold mb-1">
             {searchParams.toString() ? 'No products found' : 'Your catalog is empty'}

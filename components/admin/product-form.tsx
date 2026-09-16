@@ -383,7 +383,7 @@ export function ProductForm({ mode, initialData, categories, onSuccess }: Produc
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-3 pt-6 border-t">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-6 border-t">
         <Button type="submit" disabled={isSubmitting} className="h-11 px-6">
           {isSubmitting ? 'Saving...' : mode === 'create' ? 'Create product' : 'Save changes'}
         </Button>

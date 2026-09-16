@@ -19,6 +19,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-atmosphere-cyan: var(--atmosphere-cyan);
+  --color-atmosphere-sky: var(--atmosphere-sky);
+  --color-atmosphere-light: var(--atmosphere-light);
   --radius-lg: var(--radius-lg);
   --radius-md: var(--radius-md);
   --radius-sm: var(--radius-sm);
@@ -26,26 +29,29 @@
 
 :root {
   --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  --foreground: 222.2 47.4% 11.2%;
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 222.2 47.4% 11.2%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
+  --popover-foreground: 222.2 47.4% 11.2%;
+  --primary: 260 84% 56%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 60% 97%;
   --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
+  --muted: 220 30% 96%;
   --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
+  --accent: 190 90% 95%;
   --accent-foreground: 222.2 47.4% 11.2%;
   --destructive: 0 84.2% 60.2%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
-  --radius-lg: 0.5rem;
-  --radius-md: calc(var(--radius-lg) - 2px);
-  --radius-sm: calc(var(--radius-lg) - 4px);
+  --border: 220 20% 90%;
+  --input: 220 20% 90%;
+  --ring: 260 84% 56%;
+  --atmosphere-cyan: 190 90% 92%;
+  --atmosphere-sky: 200 80% 90%;
+  --atmosphere-light: 260 60% 97%;
+  --radius-lg: 0.625rem;
+  --radius-md: 0.5rem;
+  --radius-sm: 0.375rem;
 }
 
 .dark {
@@ -55,7 +61,7 @@
   --card-foreground: 210 40% 98%;
   --popover: 222.2 84% 4.9%;
   --popover-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
+  --primary: 260 70% 60%;
   --primary-foreground: 222.2 47.4% 11.2%;
   --secondary: 217.2 32.6% 17.5%;
   --secondary-foreground: 210 40% 98%;
@@ -66,7 +72,10 @@
   --destructive: 0 62.8% 30.6%;
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
+  --ring: 260 70% 60%;
+  --atmosphere-cyan: 190 70% 20%;
+  --atmosphere-sky: 200 60% 18%;
+  --atmosphere-light: 260 40% 15%;
 }
 
 * {
@@ -77,4 +86,127 @@ body {
   color: hsl(var(--foreground));
   background-color: hsl(var(--background));
   font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* === Atmosphere Backgrounds === */
+.bg-atmosphere-gradient {
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -20%, hsl(var(--atmosphere-cyan) / 0.5), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 100%, hsl(var(--atmosphere-sky) / 0.35), transparent),
+    hsl(var(--background));
+}
+
+.bg-atmosphere-gradient-subtle {
+  background:
+    radial-gradient(ellipse 60% 40% at 10% -10%, hsl(var(--atmosphere-cyan) / 0.35), transparent),
+    radial-gradient(ellipse 50% 30% at 90% 110%, hsl(var(--atmosphere-sky) / 0.25), transparent),
+    hsl(var(--background));
+}
+
+.bg-atmosphere-brand {
+  background:
+    radial-gradient(ellipse 70% 40% at 10% -10%, hsl(var(--atmosphere-light) / 0.8), transparent),
+    radial-gradient(ellipse 50% 35% at 90% 110%, hsl(var(--atmosphere-cyan) / 0.35), transparent),
+    hsl(var(--background));
+}
+
+/* === Glass Surfaces === */
+.glass {
+  background: hsl(0 0% 100% / 0.72);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+}
+
+.glass-subtle {
+  background: hsl(0 0% 100% / 0.55);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+
+.glass-border {
+  border-color: hsl(0 0% 100% / 0.45);
+}
+
+/* === Noise Texture === */
+.noise-overlay {
+  position: relative;
+}
+.noise-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.018;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+.noise-overlay > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* === Animations === */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.45s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.4s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-scale-in,
+  .animate-slide-in-right {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* === Scrollbar === */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
 }

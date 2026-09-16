@@ -1,20 +1,21 @@
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { Loader2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60 disabled:cursor-not-allowed active:scale-95',
+  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.97]',
   {
     variants: {
       variant: {
         default:
-          'bg-primary text-primary-foreground shadow-md hover:shadow-lg hover:bg-primary/95 active:shadow-sm',
+          'bg-primary text-primary-foreground shadow-sm shadow-primary/20 hover:shadow-md hover:shadow-primary/25 hover:brightness-110 active:shadow-sm active:shadow-primary/10',
         destructive:
           'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-md active:shadow-sm',
         outline:
-          'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground hover:border-primary/50 transition-all',
+          'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground hover:border-primary/30 hover:shadow-sm transition-all',
         secondary:
           'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 hover:shadow-md active:shadow-sm',
         ghost: 'hover:bg-accent hover:text-accent-foreground transition-colors',
@@ -39,17 +40,28 @@ interface ButtonProps
     React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  loading?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, loading, children, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button';
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        disabled={loading || props.disabled}
         {...props}
-      />
+      >
+        {asChild ? children : (
+          <>
+            {loading && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            )}
+            {children}
+          </>
+        )}
+      </Comp>
     );
   }
 );

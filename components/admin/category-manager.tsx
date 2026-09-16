@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Pencil, Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Category } from '@/types';
 
 interface CategoryManagerProps {
@@ -150,8 +151,8 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
   };
 
   return (
-    <div className="rounded-lg border border-border bg-card p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="rounded-xl border border-border/80 bg-white/70 shadow-sm shadow-black/[0.02] backdrop-blur-sm p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h3 className="text-lg font-semibold">Categories</h3>
           <p className="text-sm text-muted-foreground mt-1">Organize your products into categories.</p>
@@ -248,18 +249,19 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
           {categories.map((category) => (
             <div
               key={category.id}
-              className={`flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
+              className={cn(
+                'flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border px-4 py-3 transition-colors',
                 category.is_active ? 'border-border bg-background' : 'border-border bg-muted/30 opacity-70'
-              }`}
+              )}
             >
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0 flex-1">
                 <span className="text-sm font-medium">{category.name}</span>
                 <span className="text-xs text-muted-foreground font-mono">{category.slug}</span>
                 {category.description && (
                   <span className="text-xs text-muted-foreground mt-0.5">{category.description}</span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mt-2 sm:mt-0 flex-wrap">
                 <Button
                   variant="ghost"
                   size="sm"
