@@ -27,7 +27,7 @@ export function SignOutButton({ showLabel = true, className, ...props }: SignOut
     }
 
     toast.success("Signed out successfully");
-    router.push("/login");
+    router.push("/");
     router.refresh();
   }
 

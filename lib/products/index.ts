@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
-import type { Product, Category } from '@/types';
+import type { Product, Category, ProductImage } from '@/types';
 import type { CreateProductInput, UpdateProductInput, CreateCategoryInput, UpdateCategoryInput } from '@/lib/validation/product';
+import { listProductImages, createProductImageRecord, updateProductImage, deleteProductImageRecord, setProductImagePrimary, reorderProductImages } from './images';
 
 export interface ProductFilters {
   search?: string;
@@ -278,3 +279,13 @@ export async function deleteCategory(tenantId: string, categoryId: string): Prom
     throw new Error(`Failed to delete category: ${error.message}`);
   }
 }
+
+export {
+  listProductImages,
+  createProductImageRecord,
+  updateProductImage,
+  deleteProductImageRecord,
+  setProductImagePrimary,
+  reorderProductImages,
+};
+export type { ProductImage };

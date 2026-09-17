@@ -32,7 +32,7 @@ export default async function NewProductPage() {
       </div>
 
       <div className="rounded-xl border border-border/80 bg-white/70 shadow-sm shadow-black/[0.02] backdrop-blur-sm p-6 lg:p-8">
-        <ProductForm mode="create" categories={categories} />
+        <ProductForm mode="create" categories={categories} initialImages={[]} />
       </div>
     </div>
   );

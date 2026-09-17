@@ -53,7 +53,7 @@ export function useAuth(): UseAuthResult {
       throw error;
     }
 
-    router.push("/login");
+    router.push("/");
     router.refresh();
   }
 

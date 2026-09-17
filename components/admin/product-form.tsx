@@ -7,17 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import type { Product, Category } from '@/types';
+import type { Product, Category, ProductImage } from '@/types';
+import { ProductImageManager, type ProductImageManagerHandle } from '@/components/admin/product-image-manager';
 
 interface ProductFormProps {
   mode: 'create' | 'edit';
   initialData?: Product;
+  initialImages?: ProductImage[];
   categories: Category[];
   onSuccess?: (product: Product) => void;
 }
 
-export function ProductForm({ mode, initialData, categories, onSuccess }: ProductFormProps) {
+export function ProductForm({ mode, initialData, initialImages = [], categories, onSuccess }: ProductFormProps) {
   const router = useRouter();
+  const imageManagerRef = React.useRef<ProductImageManagerHandle | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
@@ -121,8 +124,18 @@ export function ProductForm({ mode, initialData, categories, onSuccess }: Produc
       onSuccess?.(product);
 
       if (mode === 'create') {
+        // Upload pending images after product creation
+        const uploadResult = await imageManagerRef.current?.uploadPending(product.id);
+        if (uploadResult && uploadResult.failed > 0) {
+          toast.error(`${uploadResult.failed} image(s) failed to upload. You can add them on the product page.`);
+        }
         router.push(`/dashboard/products/${product.id}`);
-      } else {
+      } else if (initialData) {
+        // Upload pending images after updating an existing product
+        const uploadResult = await imageManagerRef.current?.uploadPending(initialData.id);
+        if (uploadResult && uploadResult.failed > 0) {
+          toast.error(`${uploadResult.failed} image(s) failed to upload. You can add them on the product page.`);
+        }
         router.refresh();
       }
     } catch (error) {
@@ -380,6 +393,16 @@ export function ProductForm({ mode, initialData, categories, onSuccess }: Produc
             <p className="text-sm font-medium text-destructive">{errors.category_id}</p>
           )}
         </div>
+      </div>
+
+      {/* Product Images */}
+      <div className="space-y-5">
+        <ProductImageManager
+          ref={imageManagerRef}
+          productId={mode === 'edit' ? initialData?.id : undefined}
+          initialImages={initialImages}
+          disabled={isSubmitting}
+        />
       </div>
 
       {/* Actions */}

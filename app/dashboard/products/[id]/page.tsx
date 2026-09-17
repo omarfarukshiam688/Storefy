@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getTenantContext } from '@/lib/auth/tenant';
-import { getProduct, listCategories } from '@/lib/products';
+import { getProduct, listCategories, listProductImages } from '@/lib/products';
+import { getProductImagesSignedUrls } from '@/lib/storage';
 import { ProductForm } from '@/components/admin/product-form';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -45,6 +46,9 @@ export default async function ProductDetailPage({
   const categories = await listCategories(context.activeTenant.id);
 
   if (mode === 'edit') {
+    const images = await listProductImages(context.activeTenant.id, id);
+    const imagesWithUrls = await getProductImagesSignedUrls(images, 3600, { width: 800, quality: 80 });
+
     return (
       <div className="space-y-8">
         <div className="mb-8">
@@ -62,7 +66,7 @@ export default async function ProductDetailPage({
         </div>
 
         <div className="rounded-xl border border-border/80 bg-white/70 shadow-sm shadow-black/[0.02] backdrop-blur-sm p-6 lg:p-8">
-          <ProductForm mode="edit" initialData={product} categories={categories} />
+          <ProductForm mode="edit" initialData={product} initialImages={imagesWithUrls} categories={categories} />
         </div>
       </div>
     );

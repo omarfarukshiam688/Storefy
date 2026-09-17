@@ -169,11 +169,18 @@ export interface ProductImage {
   id: string;
   tenant_id: string;
   product_id: string;
-  storage_path: string | null;
-  url: string;
+  storage_path: string;
+  url: string | null;
   display_order: number;
   is_primary: boolean;
+  alt_text: string | null;
+  mime_type: string;
+  file_size: number;
+  width: number | null;
+  height: number | null;
+  original_filename: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface RateLimitLog {
