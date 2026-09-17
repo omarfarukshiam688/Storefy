@@ -1,4 +1,4 @@
-import { Store } from 'lucide-react';
+import Image from 'next/image';
 import { AuthPanel } from '@/components/auth/auth-panel';
 
 export default function AuthLayout({
@@ -7,24 +7,26 @@ export default function AuthLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row">
-      {/* Left Panel - Hidden on mobile/tablet, shown on lg+ */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col">
+    <div className="flex min-h-screen flex-col bg-white lg:flex-row">
+      <div className="hidden lg:flex lg:w-[54%] xl:w-[52%]">
         <AuthPanel />
       </div>
 
-      {/* Right Panel - Form Section */}
-      <div className="flex flex-1 flex-col items-center justify-center bg-background px-6 py-12 sm:px-8 lg:w-1/2 lg:p-12">
-        {/* Mobile header - Storefy logo shown only on mobile/tablet */}
-        <div className="mb-12 flex items-center gap-2 lg:hidden">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <Store className="h-5 w-5 text-primary-foreground" />
+      <div className="flex flex-1 flex-col items-center justify-center bg-white px-6 py-12 sm:px-8 lg:w-[46%] lg:p-10 xl:w-[48%]">
+        <div className="mb-12 flex items-center justify-center lg:hidden">
+          <div className="relative h-14 w-24 overflow-hidden bg-transparent sm:h-16 sm:w-28">
+            <Image
+              src="/storefy-LOGO.png"
+              alt="Storefy logo"
+              width={200}
+              height={100}
+              className="h-full w-full object-contain"
+              priority
+            />
           </div>
-          <span className="text-lg font-semibold tracking-tight">Storefy</span>
         </div>
 
-        {/* Form container with controlled width */}
-        <div className="w-full max-w-md">{children}</div>
+        <div className="w-full max-w-[430px]">{children}</div>
       </div>
     </div>
   );

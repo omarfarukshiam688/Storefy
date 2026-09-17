@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { signInSchema, type SignInInput } from "@/lib/validation/auth";
-import { AuthCard } from "@/components/auth/auth-card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
-import { toast } from "sonner";
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { signInSchema, type SignInInput } from '@/lib/validation/auth';
+import { AuthCard } from '@/components/auth/auth-card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function SignInForm() {
   const router = useRouter();
@@ -26,8 +26,8 @@ export function SignInForm() {
 
     const formData = new FormData(event.currentTarget);
     const rawData = {
-      email: formData.get("email") as string,
-      password: formData.get("password") as string,
+      email: formData.get('email') as string,
+      password: formData.get('password') as string,
     };
 
     const validated = signInSchema.safeParse(rawData);
@@ -49,19 +49,20 @@ export function SignInForm() {
     });
 
     if (error) {
-      toast.error(error.message || "Failed to sign in");
+      toast.error(error.message || 'Failed to sign in');
       setIsSubmitting(false);
       return;
     }
 
-    toast.success("Signed in successfully");
-    router.push("/dashboard");
+    toast.success('Signed in successfully');
+    router.push('/dashboard');
   }
 
   return (
     <AuthCard
       title="Sign in to Storefy"
       description="Enter your credentials to access your account"
+      className="rounded-[26px] border border-slate-200 bg-white/90 p-7 shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur-sm sm:p-8"
     >
       <form onSubmit={onSubmit} className="space-y-5">
         <div className="space-y-2">
@@ -84,7 +85,7 @@ export function SignInForm() {
             <Input
               id="password"
               name="password"
-              type={showPassword ? "text" : "password"}
+              type={showPassword ? 'text' : 'password'}
               placeholder="••••••••"
               autoComplete="current-password"
               disabled={isSubmitting || isLoading}
@@ -96,7 +97,7 @@ export function SignInForm() {
               size="sm"
               className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
               onClick={() => setShowPassword((prev) => !prev)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? (
                 <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -114,21 +115,25 @@ export function SignInForm() {
             type="button"
             variant="link"
             className="h-auto p-0 text-xs"
-            onClick={() => router.push("/forgot-password")}
+            onClick={() => router.push('/forgot-password')}
           >
             Forgot password?
           </Button>
         </div>
-        <Button type="submit" className="w-full" disabled={isSubmitting || isLoading}>
-          {isSubmitting ? "Signing in..." : "Sign in"}
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={isSubmitting || isLoading}
+        >
+          {isSubmitting ? 'Signing in...' : 'Sign in'}
         </Button>
         <p className="text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
+          Don&apos;t have an account?{' '}
           <Button
             type="button"
             variant="link"
             className="h-auto p-0"
-            onClick={() => router.push("/signup")}
+            onClick={() => router.push('/signup')}
           >
             Sign up
           </Button>
