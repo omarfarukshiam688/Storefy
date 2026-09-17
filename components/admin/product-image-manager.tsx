@@ -39,8 +39,10 @@ export const ProductImageManager = forwardRef<ProductImageManagerHandle, Product
   const dropzoneRef = useRef<HTMLDivElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
+  console.log('[DIAGNOSTIC] product-image-manager.tsx initialImages count:', initialImages.length, 'images count:', images.length);
 
   useEffect(() => {
+    console.log('[DIAGNOSTIC] product-image-manager.tsx useEffect initialImages count:', initialImages.length, 'current images count:', images.length);
     setImages(initialImages);
   }, [initialImages]);
 

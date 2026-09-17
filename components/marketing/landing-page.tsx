@@ -264,7 +264,7 @@ const faqs = [
 function Logo() {
   return (
     <div className="flex items-center">
-      <div className="relative h-11 w-22 overflow-hidden bg-transparent sm:h-12 sm:w-24">
+      <div className="relative h-11 w-[88px] overflow-hidden bg-transparent sm:h-12 sm:w-24">
         <Image
           src="/storefy-LOGO.png"
           alt="Storefy logo"

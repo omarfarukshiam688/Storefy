@@ -255,7 +255,7 @@ begin
   where pi.tenant_id = v_tenant_id
     and pi.product_id = p_product_id
     and pi.id = ordered.id;
-end;
+end;    
 $$;
 
 revoke execute on function public.reorder_product_images(uuid, uuid[]) from public;

@@ -51,7 +51,7 @@ async function assertCategoryOwnedByTenant(tenantId: string, categoryId: string 
 export async function listProducts(tenantId: string, filters: ProductFilters = {}): Promise<PaginatedProducts> {
   const supabase = await createClient();
   const page = filters.page ?? 1;
-  const pageSize = filters.page_size ?? 20;
+  const pageSize = filters.page_size ?? 15;
   const offset = (page - 1) * pageSize;
 
   let query = supabase

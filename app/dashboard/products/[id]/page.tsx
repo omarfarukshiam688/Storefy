@@ -48,6 +48,7 @@ export default async function ProductDetailPage({
   if (mode === 'edit') {
     const images = await listProductImages(context.activeTenant.id, id);
     const imagesWithUrls = await getProductImagesSignedUrls(images, 3600, { width: 800, quality: 80 });
+    console.log('[DIAGNOSTIC] page.tsx imagesWithUrls count:', imagesWithUrls.length, imagesWithUrls.map(i => ({ id: i.id, storage_path: i.storage_path, url: i.url })));
 
     return (
       <div className="space-y-8">

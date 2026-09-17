@@ -23,6 +23,7 @@ export function ProductForm({ mode, initialData, initialImages = [], categories,
   const imageManagerRef = React.useRef<ProductImageManagerHandle | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
+  console.log('[DIAGNOSTIC] product-form.tsx initialImages count:', initialImages.length, initialImages.map(i => ({ id: i.id, url: i.url })));
 
   const [formData, setFormData] = React.useState<CreateProductInput>({
     name: initialData?.name ?? '',
@@ -57,6 +58,14 @@ export function ProductForm({ mode, initialData, initialImages = [], categories,
       }
       if (name === 'category_id') {
         return { ...prev, [name]: value === '' ? null : value };
+      }
+      if (name === 'name' && mode === 'create' && !prev.slug) {
+        const slug = value
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 255);
+        return { ...prev, [name]: value, slug };
       }
       return { ...prev, [name]: value };
     });
@@ -136,7 +145,7 @@ export function ProductForm({ mode, initialData, initialImages = [], categories,
         if (uploadResult && uploadResult.failed > 0) {
           toast.error(`${uploadResult.failed} image(s) failed to upload. You can add them on the product page.`);
         }
-        router.refresh();
+        router.push('/dashboard/products');
       }
     } catch (error) {
       console.error('Submit error:', error);

@@ -26,7 +26,6 @@ interface SidebarProps {
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/products', label: 'Products', icon: Package },
-  { href: '/dashboard/products/new', label: 'Add product', icon: Package },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -51,7 +50,7 @@ function NavContent({
   return (
     <>
       <div className="flex items-center px-5 py-5">
-        <div className="relative h-18 w-28 overflow-hidden bg-transparent sm:h-20 sm:w-32">
+        <div className="relative h-[130px] w-48 overflow-hidden bg-transparent sm:h-[140px] sm:w-52">
           <Image
             src="/storefy-LOGO.png"
             alt="Storefy logo"
@@ -142,7 +141,7 @@ export function Sidebar({
 
   return (
     <>
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:h-[100dvh] lg:w-[280px] lg:flex-col lg:border-r lg:border-violet-100 lg:bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(245,247,255,0.8))] lg:backdrop-blur-xl">
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:h-[100dvh] lg:w-[280px] lg:flex-col lg:border-r lg:border-violet-200 lg:bg-[linear-gradient(180deg,rgba(225,218,255,0.97),rgba(205,225,255,0.96))] lg:backdrop-blur-xl">
         <NavContent profileName={profileName} storeName={storeName} />
       </aside>
 
@@ -162,13 +161,13 @@ export function Sidebar({
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-violet-100 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(245,247,255,0.92))] backdrop-blur-xl shadow-2xl transition-transform duration-300 ease-out lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-violet-200 bg-[linear-gradient(180deg,rgba(225,218,255,0.98),rgba(205,225,255,0.97))] backdrop-blur-xl shadow-2xl transition-transform duration-300 ease-out lg:hidden',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         <div className="flex items-center justify-between border-b border-violet-100 px-5 py-5">
           <div className="flex items-center">
-            <div className="relative h-14 w-24 overflow-hidden bg-transparent sm:h-16 sm:w-28">
+            <div className="relative h-20 w-32 overflow-hidden bg-transparent sm:h-[100px] sm:w-36">
               <Image
                 src="/storefy-LOGO.png"
                 alt="Storefy logo"
@@ -220,7 +219,7 @@ export function Sidebar({
             );
           })}
         </nav>
-        <div className="border-t border-violet-100 p-3">
+        <div className="border-t border-violet-100/80 p-3">
           <div className="flex items-center gap-3 rounded-2xl border border-violet-100 bg-white/80 p-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-sky-500 text-xs font-semibold text-white">
               {(profileName ?? 'U').charAt(0).toUpperCase()}

@@ -23,6 +23,8 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+  const isCreating = isAdding && !editingId;
+
   const resetForm = () => {
     setFormData({ name: '', slug: '', description: '' });
     setErrors({});
@@ -32,7 +34,17 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.currentTarget;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      if (name === 'name' && isCreating && !prev.slug) {
+        const slug = value
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 255);
+        return { ...prev, [name]: value, slug };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -140,16 +152,6 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
     }
   };
 
-  const autoGenerateSlug = () => {
-    if (!formData.name) return;
-    const slug = formData.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 255);
-    setFormData((prev) => ({ ...prev, slug }));
-  };
-
   return (
     <div className="rounded-xl border border-border/80 bg-white/70 shadow-sm shadow-black/[0.02] backdrop-blur-sm p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
@@ -164,7 +166,36 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
         )}
       </div>
 
-      {(isAdding || editingId) && (
+      {isCreating && (
+        <form onSubmit={handleSubmit} className="mb-6 space-y-4 rounded-lg border border-dashed border-border bg-muted/30 p-5">
+          <div className="space-y-2.5">
+            <Label htmlFor="cat-name" className="text-sm font-semibold">Category name</Label>
+            <Input
+              id="cat-name"
+              name="name"
+              type="text"
+              value={formData.name}
+              onChange={handleChange}
+              disabled={isSubmitting}
+              className="h-10 px-3 text-sm"
+              placeholder="e.g. Electronics"
+            />
+            {errors.name && (
+              <p className="text-xs font-medium text-destructive">{errors.name}</p>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <Button type="submit" disabled={isSubmitting} size="sm" className="h-9">
+              {isSubmitting ? 'Saving...' : 'Save'}
+            </Button>
+            <Button type="button" variant="outline" onClick={resetForm} size="sm" className="h-9">
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {editingId && (
         <form onSubmit={handleSubmit} className="mb-6 space-y-4 rounded-lg border border-dashed border-border bg-muted/30 p-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2.5">
@@ -185,28 +216,16 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
             </div>
             <div className="space-y-2.5">
               <Label htmlFor="cat-slug" className="text-sm font-semibold">Slug</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="cat-slug"
-                  name="slug"
-                  type="text"
-                  value={formData.slug}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
-                  className="h-10 px-3 text-sm flex-1"
-                  placeholder="category-slug"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={autoGenerateSlug}
-                  disabled={isSubmitting}
-                  className="h-10 px-3"
-                >
-                  Auto
-                </Button>
-              </div>
+              <Input
+                id="cat-slug"
+                name="slug"
+                type="text"
+                value={formData.slug}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                className="h-10 px-3 text-sm"
+                placeholder="category-slug"
+              />
               {errors.slug && (
                 <p className="text-xs font-medium text-destructive">{errors.slug}</p>
               )}
@@ -230,7 +249,7 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
           </div>
           <div className="flex gap-3">
             <Button type="submit" disabled={isSubmitting} size="sm" className="h-9">
-              {isSubmitting ? 'Saving...' : editingId ? 'Update' : 'Create'}
+              {isSubmitting ? 'Saving...' : 'Update'}
             </Button>
             <Button type="button" variant="outline" onClick={resetForm} size="sm" className="h-9">
               Cancel

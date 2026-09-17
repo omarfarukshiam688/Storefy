@@ -24,6 +24,7 @@ export function ProductFilters({ categories }: ProductFiltersProps) {
   const isFeatured = searchParams.get('is_featured') ?? '';
   const sortBy = searchParams.get('sort_by') ?? 'created_at';
   const sortOrder = searchParams.get('sort_order') ?? 'desc';
+  const pageSize = searchParams.get('page_size') ?? '15';
 
   const hasFilters = search || categoryId || isActive || isFeatured;
 
@@ -106,6 +107,22 @@ export function ProductFilters({ categories }: ProductFiltersProps) {
           <option value="price-desc">Price high to low</option>
           <option value="updated_at-desc">Recently updated</option>
           <option value="updated_at-asc">Least recently updated</option>
+        </select>
+
+        <select
+          value={pageSize}
+          onChange={(e) => {
+            const params = new URLSearchParams(searchParams.toString());
+            params.set('page_size', e.target.value);
+            params.set('page', '1');
+            router.push(`${pathname}?${params.toString()}`);
+          }}
+          className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent lg:w-auto"
+        >
+          <option value="15">15 per page</option>
+          <option value="30">30 per page</option>
+          <option value="45">45 per page</option>
+          <option value="60">60 per page</option>
         </select>
 
         {hasFilters && (

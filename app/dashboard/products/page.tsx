@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { listProducts, listCategories } from '@/lib/products';
+import { createClient } from '@/lib/supabase/server';
 import { ProductsPageClient } from '@/components/admin/products-page-client';
 
 export default async function ProductsPage({
@@ -30,6 +31,32 @@ export default async function ProductsPage({
     listCategories(tenant.id),
   ]);
 
+  const productIds = productsResult.products.map((p) => p.id);
+  const supabase = await createClient();
+
+  const imageCounts: Record<string, number> = {};
+  const primaryImages: Record<string, string | null> = {};
+
+  if (productIds.length > 0) {
+    const { data: images } = await supabase
+      .from('product_images')
+      .select('product_id, url, is_primary')
+      .eq('tenant_id', tenant.id)
+      .in('product_id', productIds);
+
+    images?.forEach((img) => {
+      imageCounts[img.product_id] = (imageCounts[img.product_id] || 0) + 1;
+      if (img.is_primary && primaryImages[img.product_id] == null) {
+        primaryImages[img.product_id] = img.url;
+      }
+    });
+  }
+
+  const categoryMap = categories.reduce<Record<string, string>>((acc, cat) => {
+    acc[cat.id] = cat.name;
+    return acc;
+  }, {});
+
   return (
     <ProductsPageClient
       initialProducts={productsResult.products}
@@ -37,6 +64,9 @@ export default async function ProductsPage({
       initialTotal={productsResult.total}
       initialPage={productsResult.page}
       initialTotalPages={productsResult.total_pages}
+      imageCounts={imageCounts}
+      primaryImages={primaryImages}
+      categoryMap={categoryMap}
     />
   );
 }
