@@ -49,7 +49,8 @@ export async function getStorefrontProducts(
     .from('products')
     .select('*', { count: 'exact' })
     .eq('tenant_id', tenantId)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .eq('is_archived', false);
 
   if (filters.search) {
     const term = `%${filters.search}%`;
@@ -103,6 +104,7 @@ export async function getStorefrontProduct(
     .eq('tenant_id', tenantId)
     .eq('slug', productSlug)
     .eq('is_active', true)
+    .eq('is_archived', false)
     .maybeSingle();
 
   if (error || !data) {
@@ -123,6 +125,7 @@ export async function getFeaturedProducts(
     .select('*')
     .eq('tenant_id', tenantId)
     .eq('is_active', true)
+    .eq('is_archived', false)
     .eq('is_featured', true)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -233,4 +236,4 @@ export async function getEnabledStorefrontSections(
   return (data ?? []) as TenantStorefrontSection[];
 }
 
-export { enrichProductImagesWithUrls, getPrimaryImageUrlsForProducts, getHeroImageSignedUrl } from './images';
+export { enrichProductImagesWithUrls, getPrimaryImageUrlsForProducts, getHeroImageSignedUrl, getStoreLogoUrl, getStoreFaviconUrl } from './images';

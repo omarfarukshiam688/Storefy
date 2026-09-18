@@ -1,13 +1,15 @@
 import type { AboutUsSectionConfig } from '@/types';
+import { getAboutImageSignedUrl } from '@/lib/storage';
 
 interface AboutUsSectionProps {
   config: AboutUsSectionConfig;
 }
 
-export function AboutUsSection({ config }: AboutUsSectionProps) {
+export async function AboutUsSection({ config }: AboutUsSectionProps) {
   const heading = config.heading || 'About Us';
   const description = config.description || '';
   const imagePath = config.image_path || null;
+  const imageUrl = imagePath ? await getAboutImageSignedUrl(imagePath, 3600) : null;
 
   if (!description && !imagePath) return null;
 
@@ -25,10 +27,10 @@ export function AboutUsSection({ config }: AboutUsSectionProps) {
               </p>
             )}
           </div>
-          {imagePath && (
+          {imageUrl && (
             <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-slate-100">
               <img
-                src={imagePath}
+                src={imageUrl}
                 alt={heading}
                 className="h-full w-full object-cover"
               />

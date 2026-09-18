@@ -5,8 +5,8 @@ export const PRODUCT_IMAGES_BUCKET = 'product-images';
 export const STORE_ASSETS_BUCKET = 'store-assets';
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
 export const MAX_IMAGES_PER_PRODUCT = 8;
-export const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const;
-export const ALLOWED_EXTENSIONS = ['jpg', 'png', 'webp', 'gif'] as const;
+export const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'] as const;
+export const ALLOWED_EXTENSIONS = ['jpg', 'png', 'webp', 'gif', 'svg'] as const;
 
 export type DetectedImage = {
   mimeType: string;
@@ -66,6 +66,12 @@ export function detectImageType(buffer: ArrayBuffer): DetectedImage | null {
     return { mimeType: 'image/webp', extension: 'webp', width: null, height: null };
   }
 
+  // SVG
+  const textPrefix = new TextDecoder('utf-8', { fatal: false }).decode(bytes.slice(0, 128)).trim().toLowerCase();
+  if (textPrefix.startsWith('<?xml') || textPrefix.startsWith('<svg')) {
+    return { mimeType: 'image/svg+xml', extension: 'svg', width: null, height: null };
+  }
+
   return null;
 }
 
@@ -107,6 +113,22 @@ export function buildStoreAssetPath(
     throw new Error('Invalid extension');
   }
   return `tenant/${tenantId}/branding/${assetId}.${ext}`;
+}
+
+export function buildStoreFaviconPath(
+  tenantId: string,
+  assetId: string,
+  extension: string
+): string {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(tenantId) || !uuidRegex.test(assetId)) {
+    throw new Error('Invalid UUID');
+  }
+  const ext = extension.toLowerCase();
+  if (!ALLOWED_EXTENSIONS.includes(ext as (typeof ALLOWED_EXTENSIONS)[number])) {
+    throw new Error('Invalid extension');
+  }
+  return `tenant/${tenantId}/branding/favicon/${assetId}.${ext}`;
 }
 
 export async function getProductImageSignedUrl(
@@ -192,6 +214,22 @@ export function buildStorefrontHeroImagePath(
   return `tenant/${tenantId}/branding/hero/${imageId}.${ext}`;
 }
 
+export function buildStorefrontAboutImagePath(
+  tenantId: string,
+  imageId: string,
+  extension: string
+): string {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(tenantId) || !uuidRegex.test(imageId)) {
+    throw new Error('Invalid UUID');
+  }
+  const ext = extension.toLowerCase();
+  if (!ALLOWED_EXTENSIONS.includes(ext as (typeof ALLOWED_EXTENSIONS)[number])) {
+    throw new Error('Invalid extension');
+  }
+  return `tenant/${tenantId}/branding/about/${imageId}.${ext}`;
+}
+
 export async function getStoreAssetSignedUrl(
   storagePath: string,
   expiresIn = 3600
@@ -205,6 +243,13 @@ export async function getStoreAssetSignedUrl(
 }
 
 export async function getHeroImageSignedUrl(
+  storagePath: string,
+  expiresIn = 3600
+): Promise<string | null> {
+  return getStoreAssetSignedUrl(storagePath, expiresIn);
+}
+
+export async function getAboutImageSignedUrl(
   storagePath: string,
   expiresIn = 3600
 ): Promise<string | null> {

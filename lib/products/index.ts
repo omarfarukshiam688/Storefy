@@ -1,13 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Product, Category, ProductImage } from '@/types';
 import type { CreateProductInput, UpdateProductInput, CreateCategoryInput, UpdateCategoryInput } from '@/lib/validation/product';
-import { listProductImages, createProductImageRecord, updateProductImage, deleteProductImageRecord, setProductImagePrimary, reorderProductImages } from './images';
+import { deleteProductImageFile } from '@/lib/storage';
+import { listProductImages } from './images';
 
 export interface ProductFilters {
   search?: string;
   category_id?: string | null;
   is_active?: boolean;
   is_featured?: boolean;
+  is_archived?: boolean;
   sort_by?: 'created_at' | 'updated_at' | 'name' | 'price';
   sort_order?: 'asc' | 'desc';
   page?: number;
@@ -20,6 +22,7 @@ export interface PaginatedProducts {
   page: number;
   page_size: number;
   total_pages: number;
+  sold_counts: Record<string, number>;
 }
 
 function generateSlug(name: string): string {
@@ -80,6 +83,12 @@ export async function listProducts(tenantId: string, filters: ProductFilters = {
     query = query.eq('is_featured', filters.is_featured);
   }
 
+  if (filters.is_archived !== undefined) {
+    query = query.eq('is_archived', filters.is_archived);
+  } else {
+    query = query.eq('is_archived', false);
+  }
+
   const sortBy = filters.sort_by ?? 'created_at';
   const sortOrder = filters.sort_order ?? 'desc';
   query = query.order(sortBy, { ascending: sortOrder === 'asc' });
@@ -94,12 +103,39 @@ export async function listProducts(tenantId: string, filters: ProductFilters = {
   const total = count ?? 0;
   const totalPages = Math.ceil(total / pageSize) || 1;
 
+  const sold_counts: Record<string, number> = {};
+
+  if (products.length > 0) {
+    const productIds = products.map((p) => p.id);
+    const { data: soldData, error: soldError } = await supabase
+      .from('order_items')
+      .select('product_id, order_id')
+      .eq('tenant_id', tenantId)
+      .in('product_id', productIds)
+      .not('order_id', 'is', null);
+
+    if (!soldError && soldData) {
+      const counts = new Map<string, Set<string>>();
+      soldData.forEach((item) => {
+        if (item.product_id) {
+          const set = counts.get(item.product_id) || new Set<string>();
+          set.add(item.order_id);
+          counts.set(item.product_id, set);
+        }
+      });
+      counts.forEach((orderIds, productId) => {
+        sold_counts[productId] = orderIds.size;
+      });
+    }
+  }
+
   return {
     products,
     total,
     page,
     page_size: pageSize,
     total_pages: totalPages,
+    sold_counts,
   };
 }
 
@@ -167,7 +203,7 @@ export async function archiveProduct(tenantId: string, productId: string): Promi
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('products')
-    .update({ is_active: false })
+    .update({ is_active: false, is_archived: true })
     .eq('tenant_id', tenantId)
     .eq('id', productId)
     .select()
@@ -184,7 +220,7 @@ export async function restoreProduct(tenantId: string, productId: string): Promi
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('products')
-    .update({ is_active: true })
+    .update({ is_active: true, is_archived: false })
     .eq('tenant_id', tenantId)
     .eq('id', productId)
     .select()
@@ -195,6 +231,32 @@ export async function restoreProduct(tenantId: string, productId: string): Promi
   }
 
   return data as Product;
+}
+
+export async function deleteProduct(tenantId: string, productId: string): Promise<void> {
+  const supabase = await createClient();
+
+  const images = await listProductImages(tenantId, productId);
+  for (const image of images) {
+    const { error: storageError } = await deleteProductImageFile(image.storage_path);
+    if (storageError) {
+      throw new Error(`Failed to delete product image file: ${storageError.message}`);
+    }
+  }
+
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('tenant_id', tenantId)
+    .eq('id', productId);
+
+  if (error) {
+    throw new Error(`Failed to delete product: ${error.message}`);
+  }
+}
+
+export async function listArchivedProducts(tenantId: string, filters: Omit<ProductFilters, 'is_archived'> = {}): Promise<PaginatedProducts> {
+  return listProducts(tenantId, { ...filters, is_archived: true });
 }
 
 export async function listCategories(tenantId: string): Promise<Category[]> {
@@ -280,12 +342,4 @@ export async function deleteCategory(tenantId: string, categoryId: string): Prom
   }
 }
 
-export {
-  listProductImages,
-  createProductImageRecord,
-  updateProductImage,
-  deleteProductImageRecord,
-  setProductImagePrimary,
-  reorderProductImages,
-};
 export type { ProductImage };

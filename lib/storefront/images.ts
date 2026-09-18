@@ -17,7 +17,21 @@ export async function getStoreLogoUrl(
   expiresIn = 3600
 ): Promise<string | null> {
   if (!logoPath) return null;
+  if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) {
+    return logoPath;
+  }
   return getStoreAssetSignedUrl(logoPath, expiresIn);
+}
+
+export async function getStoreFaviconUrl(
+  faviconPath: string | null | undefined,
+  expiresIn = 3600
+): Promise<string | null> {
+  if (!faviconPath) return null;
+  if (faviconPath.startsWith('http://') || faviconPath.startsWith('https://')) {
+    return faviconPath;
+  }
+  return getStoreAssetSignedUrl(faviconPath, expiresIn);
 }
 
 export async function getHeroImageSignedUrl(

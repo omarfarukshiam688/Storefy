@@ -36,13 +36,12 @@ export async function generateMetadata({ params }: StoreHomePageProps): Promise<
   const sections = await getEnabledStorefrontSections(tenant.id);
   const heroSection = sections.find((s) => s.section_key === 'hero');
   const heroConfig = heroSection?.config as HeroSectionConfig | undefined;
-  const heroHeading = heroConfig?.heading as string | undefined;
 
   return {
-    title: heroHeading ? `${heroHeading} - ${tenant.name}` : `Welcome to ${tenant.name}`,
+    title: tenant.name,
     description: heroConfig?.subheading || description || `Shop the best products at ${tenant.name}`,
     openGraph: {
-      title: heroHeading ? `${heroHeading} - ${tenant.name}` : `Welcome to ${tenant.name}`,
+      title: tenant.name,
       description: heroConfig?.subheading || description || `Shop the best products at ${tenant.name}`,
       type: 'website',
     },
@@ -121,7 +120,7 @@ export default async function StoreHomePage({ params }: StoreHomePageProps) {
                 </p>
               </div>
               <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
-                <Link href="./products">
+                <Link href={`/s/${slug}/products`}>
                   View all
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -129,12 +128,12 @@ export default async function StoreHomePage({ params }: StoreHomePageProps) {
             </div>
 
             <div className="mt-8">
-              <ProductGrid products={displayProducts} imageUrls={imageUrlMap} />
+              <ProductGrid products={displayProducts} imageUrls={imageUrlMap} tenantSlug={slug} />
             </div>
 
             <div className="mt-8 sm:hidden">
               <Button asChild variant="outline" className="w-full">
-                <Link href="./products">
+                <Link href={`/s/${slug}/products`}>
                   View all products
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>

@@ -26,7 +26,7 @@ export function AboutUsEditor({ section, onUpdate, tenantId }: AboutUsEditorProp
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch(`/api/tenants/${tenantId}/storefront/hero-image`, {
+      const res = await fetch(`/api/tenants/${tenantId}/storefront/about-image`, {
         method: 'POST',
         body: formData,
       });
@@ -50,7 +50,7 @@ export function AboutUsEditor({ section, onUpdate, tenantId }: AboutUsEditorProp
 
   const handleDeleteImage = async () => {
     try {
-      const res = await fetch(`/api/tenants/${tenantId}/storefront/hero-image?image_path=${encodeURIComponent(imagePath || '')}`, {
+      const res = await fetch(`/api/tenants/${tenantId}/storefront/about-image?image_path=${encodeURIComponent(imagePath || '')}`, {
         method: 'DELETE',
       });
 

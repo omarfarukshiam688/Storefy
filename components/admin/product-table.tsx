@@ -1,34 +1,21 @@
 'use client';
 
-import * as React from 'react';
 import Link from 'next/link';
-import {
-  MoreVertical,
-  Pencil,
-  Eye,
-  Archive,
-  RotateCcw,
-  ImageOff,
-} from 'lucide-react';
+import { Eye, Pencil, Archive, Trash2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import type { Product } from '@/types';
 
 interface ProductTableProps {
   products: Product[];
   categoryMap: Record<string, string>;
-  imageCounts: Record<string, number>;
+  soldCounts: Record<string, number>;
   primaryImages: Record<string, string | null>;
   onSelect?: (product: Product) => void;
   onArchive?: (product: Product) => void;
   onRestore?: (product: Product) => void;
+  onDelete?: (product: Product) => void;
+  showArchivedStatus?: boolean;
 }
 
 const statusVariantMap: Record<
@@ -37,8 +24,8 @@ const statusVariantMap: Record<
 > = {
   in_stock: 'success',
   out_of_stock: 'error',
-  preorder: 'info',
-  backorder: 'warning',
+  preorder: 'success',
+  backorder: 'error',
 };
 
 function formatPrice(price: number, currency: string) {
@@ -49,134 +36,26 @@ function formatPrice(price: number, currency: string) {
   }).format(price);
 }
 
-function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(date);
-}
-
-function ProductActions({
-  product,
-  onSelect,
-  onArchive,
-  onRestore,
-}: {
-  product: Product;
-  onSelect?: (product: Product) => void;
-  onArchive?: (product: Product) => void;
-  onRestore?: (product: Product) => void;
-}) {
-  return (
-    <div className="flex items-center justify-end gap-1">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 text-slate-500 hover:bg-violet-50 hover:text-violet-700"
-        onClick={() => onSelect?.(product)}
-        aria-label={`View ${product.name}`}
-      >
-        <Eye className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 text-slate-500 hover:bg-violet-50 hover:text-violet-700"
-        asChild
-        aria-label={`Edit ${product.name}`}
-      >
-        <Link href={`/dashboard/products/${product.id}?mode=edit`}>
-          <Pencil className="h-4 w-4" />
-        </Link>
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-slate-500 hover:bg-violet-50 hover:text-violet-700"
-          >
-            <MoreVertical className="h-4 w-4" />
-            <span className="sr-only">More actions</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
-          <DropdownMenuItem
-            onClick={() => onSelect?.(product)}
-            className="flex cursor-pointer items-center gap-2"
-          >
-            <Eye className="h-4 w-4" />
-            Overview
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link
-              href={`/dashboard/products/${product.id}?mode=edit`}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <Pencil className="h-4 w-4" />
-              Edit
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {product.is_active ? (
-            <DropdownMenuItem
-              onClick={() => onArchive?.(product)}
-              className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
-            >
-              <Archive className="h-4 w-4" />
-              Deactivate
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              onClick={() => onRestore?.(product)}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Activate
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
-
-function ProductImageCell({
-  product,
-  primaryImages,
-}: {
-  product: Product;
-  primaryImages: Record<string, string | null>;
-}) {
-  const primaryUrl = primaryImages[product.id];
-
-  if (!primaryUrl) {
-    return (
-      <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted border border-border">
-        <ImageOff className="h-4 w-4 text-muted-foreground" />
-      </div>
-    );
+function availabilityLabel(status: string) {
+  if (status === 'in_stock' || status === 'preorder') {
+    return 'Available';
   }
-
-  return (
-    <img
-      src={primaryUrl}
-      alt={product.name}
-      className="w-10 h-10 rounded-lg object-cover border border-border bg-muted"
-    />
-  );
+  if (status === 'out_of_stock' || status === 'backorder') {
+    return 'Unavailable';
+  }
+  return status.replace('_', ' ');
 }
 
 export function ProductTable({
   products,
   categoryMap,
-  imageCounts,
+  soldCounts,
   primaryImages,
   onSelect,
   onArchive,
   onRestore,
+  onDelete,
+  showArchivedStatus = false,
 }: ProductTableProps) {
   if (products.length === 0) {
     return (
@@ -199,67 +78,119 @@ export function ProductTable({
           const categoryName = product.category_id
             ? categoryMap[product.category_id]
             : null;
-          const count = imageCounts[product.id] ?? 0;
+          const sold = soldCounts[product.id] ?? 0;
+          const thumbnail = primaryImages[product.id];
           return (
             <div
               key={product.id}
               className="rounded-xl border border-border/80 bg-white/70 shadow-sm shadow-black/[0.02] backdrop-blur-sm p-4"
             >
-              <div className="flex items-start gap-3">
-                <ProductImageCell
-                  product={product}
-                  primaryImages={primaryImages}
-                />
-                <div className="flex-1 min-w-0">
-                  <Link
-                    href={`/dashboard/products/${product.id}`}
-                    className="font-medium text-foreground hover:text-primary transition-colors line-clamp-1"
-                  >
-                    {product.name}
-                  </Link>
-                  {categoryName && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {categoryName}
-                    </p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  {thumbnail ? (
+                    <img
+                      src={thumbnail}
+                      alt={product.name}
+                      className="h-10 w-10 shrink-0 rounded-lg object-cover border border-slate-100"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 shrink-0 rounded-lg border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400 text-[10px] font-medium">
+                      No img
+                    </div>
                   )}
-                  {product.short_description && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                      {product.short_description}
-                    </p>
-                  )}
-                  {!product.is_active && (
-                    <span className="inline-block mt-1 text-xs font-medium text-muted-foreground">
-                      Inactive
-                    </span>
-                  )}
+                  <div className="flex-1 min-w-0">
+                    <Link
+                      href={`/dashboard/products/${product.id}`}
+                      className="font-medium text-foreground hover:text-primary transition-colors line-clamp-1"
+                    >
+                      {product.name}
+                    </Link>
+                    {categoryName && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {categoryName}
+                      </p>
+                    )}
+                    {showArchivedStatus && (
+                      <span className="inline-block mt-1 text-xs font-medium text-muted-foreground">
+                        Archived
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <ProductActions
-                  product={product}
-                  onSelect={onSelect}
-                  onArchive={onArchive}
-                  onRestore={onRestore}
-                />
               </div>
               <div className="flex items-center gap-2 mt-3 flex-wrap">
                 <StatusBadge variant={statusVariant}>
-                  {product.stock_status.replace('_', ' ')}
+                  {availabilityLabel(product.stock_status)}
                 </StatusBadge>
                 {product.is_featured && (
                   <StatusBadge variant="brand">Featured</StatusBadge>
                 )}
-                <span className="text-xs text-muted-foreground ml-auto">
-                  {count > 0
-                    ? `${count} image${count !== 1 ? 's' : ''}`
-                    : 'No images'}
-                </span>
+                {showArchivedStatus && (
+                  <StatusBadge variant="neutral">Archived</StatusBadge>
+                )}
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-sm font-medium">
                   {formatPrice(product.price, product.currency)}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {formatDate(product.updated_at)}
+                  Sold: {sold}
                 </span>
+              </div>
+              <div className="mt-3 flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-slate-500 hover:bg-violet-50 hover:text-violet-700"
+                  onClick={() => onSelect?.(product)}
+                  aria-label={`View ${product.name}`}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-slate-500 hover:bg-violet-50 hover:text-violet-700"
+                  asChild
+                  aria-label={`Edit ${product.name}`}
+                >
+                  <Link href={`/dashboard/products/${product.id}?mode=edit`}>
+                    <Pencil className="h-4 w-4" />
+                  </Link>
+                </Button>
+                {onArchive && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-500 hover:bg-amber-50 hover:text-amber-700"
+                    onClick={() => onArchive(product)}
+                    aria-label={`Archive ${product.name}`}
+                  >
+                    <Archive className="h-4 w-4" />
+                  </Button>
+                )}
+                {onRestore && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700"
+                    onClick={() => onRestore(product)}
+                    aria-label={`Restore ${product.name}`}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                )}
+                {onDelete && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-500 hover:bg-red-50 hover:text-red-700"
+                    onClick={() => onDelete(product)}
+                    aria-label={`Delete ${product.name}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
           );
@@ -282,13 +213,10 @@ export function ProductTable({
                   Price
                 </th>
                 <th className="h-12 px-6 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                  Sold
+                </th>
+                <th className="h-12 px-6 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                   Status
-                </th>
-                <th className="h-12 px-6 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Images
-                </th>
-                <th className="h-12 px-6 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Updated
                 </th>
                 <th className="h-12 px-6 text-right text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                   Actions
@@ -302,7 +230,8 @@ export function ProductTable({
                 const categoryName = product.category_id
                   ? categoryMap[product.category_id]
                   : null;
-                const count = imageCounts[product.id] ?? 0;
+                const sold = soldCounts[product.id] ?? 0;
+                const thumbnail = primaryImages[product.id];
                 return (
                   <tr
                     key={product.id}
@@ -310,10 +239,17 @@ export function ProductTable({
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <ProductImageCell
-                          product={product}
-                          primaryImages={primaryImages}
-                        />
+                        {thumbnail ? (
+                          <img
+                            src={thumbnail}
+                            alt={product.name}
+                            className="h-10 w-10 shrink-0 rounded-lg object-cover border border-slate-100"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 shrink-0 rounded-lg border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400 text-[10px] font-medium">
+                            No img
+                          </div>
+                        )}
                         <div className="flex flex-col min-w-0">
                           <Link
                             href={`/dashboard/products/${product.id}`}
@@ -326,9 +262,9 @@ export function ProductTable({
                               {product.short_description}
                             </p>
                           )}
-                          {!product.is_active && (
+                          {showArchivedStatus && (
                             <span className="inline-block mt-1 text-xs font-medium text-muted-foreground">
-                              Inactive
+                              Archived
                             </span>
                           )}
                         </div>
@@ -356,29 +292,77 @@ export function ProductTable({
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <StatusBadge variant={statusVariant}>
-                        {product.stock_status.replace('_', ' ')}
-                      </StatusBadge>
+                      <span className="text-sm font-medium">{sold}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs text-muted-foreground">
-                        {count > 0
-                          ? `${count} image${count !== 1 ? 's' : ''}`
-                          : '—'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(product.updated_at)}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge variant={statusVariant}>
+                          {availabilityLabel(product.stock_status)}
+                        </StatusBadge>
+                        {product.is_featured && (
+                          <StatusBadge variant="brand">Featured</StatusBadge>
+                        )}
+                        {showArchivedStatus && (
+                          <StatusBadge variant="neutral">Archived</StatusBadge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <ProductActions
-                        product={product}
-                        onSelect={onSelect}
-                        onArchive={onArchive}
-                        onRestore={onRestore}
-                      />
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:bg-violet-50 hover:text-violet-700"
+                          onClick={() => onSelect?.(product)}
+                          aria-label={`View ${product.name}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:bg-violet-50 hover:text-violet-700"
+                          asChild
+                          aria-label={`Edit ${product.name}`}
+                        >
+                          <Link href={`/dashboard/products/${product.id}?mode=edit`}>
+                            <Pencil className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        {onArchive && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-500 hover:bg-amber-50 hover:text-amber-700"
+                            onClick={() => onArchive(product)}
+                            aria-label={`Archive ${product.name}`}
+                          >
+                            <Archive className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onRestore && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700"
+                            onClick={() => onRestore(product)}
+                            aria-label={`Restore ${product.name}`}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-500 hover:bg-red-50 hover:text-red-700"
+                            onClick={() => onDelete(product)}
+                            aria-label={`Delete ${product.name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

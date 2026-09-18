@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     template: "%s | Storefy",
   },
   description: "Multi-tenant SaaS platform for small businesses.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

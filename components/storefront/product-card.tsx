@@ -9,6 +9,7 @@ import type { Product } from '@/types';
 interface ProductCardProps {
   product: Product;
   imageUrl?: string | null;
+  tenantSlug: string;
 }
 
 const currencySymbols: Record<string, string> = {
@@ -22,7 +23,7 @@ const currencySymbols: Record<string, string> = {
   AUD: 'A$',
 };
 
-export function ProductCard({ product, imageUrl }: ProductCardProps) {
+export function ProductCard({ product, imageUrl, tenantSlug }: ProductCardProps) {
   const [imgError, setImgError] = React.useState(false);
   const showFallback = !imageUrl || imgError;
 
@@ -33,7 +34,7 @@ export function ProductCard({ product, imageUrl }: ProductCardProps) {
 
   return (
     <Link
-      href={`/products/${product.slug}`}
+      href={`/s/${tenantSlug}/products/${product.slug}`}
       className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 shadow-sm shadow-black/[0.02] backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-[0_24px_60px_-30px_rgba(76,29,149,0.28)]"
     >
       <div className="relative aspect-square overflow-hidden bg-slate-100">

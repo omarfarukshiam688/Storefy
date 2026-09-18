@@ -22,7 +22,6 @@ export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111' }: St
   const navLinks = [
     { href: '.', label: 'Home' },
     { href: './products', label: 'Products' },
-    { href: './categories', label: 'Categories' },
   ];
 
   const isActive = (href: string) => {
@@ -47,11 +46,11 @@ export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111' }: St
             <img
               src={logoUrl}
               alt={storeName}
-              className="h-9 w-auto object-contain"
+              className="h-11 w-auto object-contain sm:h-12"
             />
           ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-sky-500 text-white shadow-sm">
-              <Store className="h-5 w-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-sky-500 text-white shadow-sm sm:h-11 sm:w-11">
+              <Store className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
           )}
           <span className="text-lg font-semibold tracking-[-0.03em] text-slate-900 sm:text-xl">

@@ -79,6 +79,7 @@ export interface Product {
   currency: string;
   stock_status: "in_stock" | "out_of_stock" | "preorder" | "backorder";
   is_active: boolean;
+  is_archived: boolean;
   is_featured: boolean;
   metadata: Record<string, unknown>;
   category_id: string | null;

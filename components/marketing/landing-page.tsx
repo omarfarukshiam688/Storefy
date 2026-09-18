@@ -227,37 +227,37 @@ const faqs = [
   {
     question: 'What is Storefy?',
     answer:
-      'Storefy is a multi-tenant SaaS workspace for small businesses to manage their products, orders, storefront, and business settings from a single place.',
+      'Storefy is a multi-tenant SaaS platform that helps small businesses turn their Facebook-based business into a professional online store. You can manage your products, storefront, business settings, and day-to-day operations from one place.',
   },
   {
     question: 'Who is Storefy for?',
     answer:
-      'It is designed for small businesses, home-based sellers, Facebook sellers, and growing online brands that need a more professional way to run their sales and operations.',
+      'Storefy is built for small businesses, home-based sellers, Facebook sellers, and growing brands that want a professional online storefront without the cost and complexity of building one from scratch.',
   },
   {
     question: 'Do I need coding knowledge?',
     answer:
-      'No. Storefy is built for business owners who want a storefront and workspace without needing to build or maintain custom code.',
+      'No. Storefy is designed for business owners, not developers. You can set up your store, manage products, customize your storefront, and manage your business from the dashboard without writing code.',
   },
   {
     question: 'How does Storefy work?',
     answer:
-      'You create your store workspace, add your products, manage orders and settings, and use the dashboard to keep your business organized in one place.',
+      'Create your Storefy workspace, set up your store, add your products, customize your storefront, and start sharing it with your customers. Storefy provides the dashboard and storefront infrastructure so you can focus on running your business.',
   },
   {
     question: 'Can I manage my products from Storefy?',
     answer:
-      'Yes. Storefy includes product management workflows for organizing your catalog, categories, and product details.',
+      'Yes. You can create, edit, organize, feature, archive, and manage your products from the Storefy dashboard. Your product information and images are connected to your storefront, so updates can be managed from one place.',
   },
   {
     question: 'Can I start for free?',
     answer:
-      'You can begin by creating your Storefy workspace and setting up your store without needing a custom build or technical setup.',
+      'Yes. You can start with Storefy without an upfront cost. Free and trial access comes with usage limits, while paid plans can provide higher limits and additional features as your business grows.',
   },
   {
     question: 'Can I manage my store from one dashboard?',
     answer:
-      'Yes. Storefy brings product management, business settings, and operational tasks into a single dashboard experience.',
+      'Yes. Storefy brings your store management into one dashboard, giving you a central place to manage products, storefront settings, branding, and other business operations instead of handling everything separately.',
   },
 ];
 
@@ -359,6 +359,34 @@ function FloatingDashCard({
 export function LandingPage() {
   const [activeTab, setActiveTab] = React.useState<ShowcaseTab>('Products');
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleAnchorClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const anchor = target.closest('a[href^="#"]') as HTMLAnchorElement | null;
+      if (!anchor) return;
+
+      const href = anchor.getAttribute('href');
+      if (!href || href === '#') return;
+
+      const id = href.slice(1);
+      const element = document.getElementById(id);
+      if (!element) return;
+
+      e.preventDefault();
+      const headerOffset = 80;
+      const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+      const offsetPosition = elementPosition - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth',
+      });
+    };
+
+    document.addEventListener('click', handleAnchorClick);
+    return () => document.removeEventListener('click', handleAnchorClick);
+  }, []);
 
   return (
     <div className="min-h-screen bg-atmosphere-gradient text-slate-900">
@@ -1158,11 +1186,13 @@ export function LandingPage() {
                     <Accordion.Header>
                       <Accordion.Trigger className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left text-base font-medium text-slate-900 hover:text-violet-700 sm:px-5">
                         <span>{faq.question}</span>
-                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 data-[state=open]:rotate-180" />
+                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform duration-300 data-[state=open]:rotate-180" />
                       </Accordion.Trigger>
                     </Accordion.Header>
-                    <Accordion.Content className="px-4 pb-4 text-sm leading-6 text-slate-600 sm:px-5">
-                      {faq.answer}
+                    <Accordion.Content className="accordion-content">
+                      <div className="px-4 pb-4 text-sm leading-6 text-slate-600 sm:px-5">
+                        {faq.answer}
+                      </div>
                     </Accordion.Content>
                   </Accordion.Item>
                 ))}

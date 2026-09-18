@@ -122,7 +122,7 @@ export function SignInForm() {
         </div>
         <Button
           type="submit"
-          className="w-full"
+          className="w-full border-0 bg-gradient-to-r from-[#47b9f6] via-[#5b7ef5] to-[#4a5ae4] text-white shadow-lg shadow-[#4a5ae4]/25 hover:brightness-105 hover:shadow-xl hover:shadow-[#4a5ae4]/30"
           disabled={isSubmitting || isLoading}
         >
           {isSubmitting ? 'Signing in...' : 'Sign in'}

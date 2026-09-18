@@ -10,8 +10,10 @@ import { ProductTable } from '@/components/admin/product-table';
 import { ProductFilters } from '@/components/admin/product-filters';
 import { ProductOverviewDrawer } from '@/components/admin/product-overview-drawer';
 import Link from 'next/link';
-import { Plus, Package, Sparkles, Tag } from 'lucide-react';
+import { Plus, Package, Sparkles, Tag, Archive } from 'lucide-react';
 import type { Product, Category } from '@/types';
+
+type PageMode = 'active' | 'archived';
 
 interface ProductsPageClientProps {
   initialProducts: Product[];
@@ -19,9 +21,11 @@ interface ProductsPageClientProps {
   initialTotal: number;
   initialPage: number;
   initialTotalPages: number;
+  initialSoldCounts: Record<string, number>;
   imageCounts: Record<string, number>;
   primaryImages: Record<string, string | null>;
   categoryMap: Record<string, string>;
+  mode: PageMode;
 }
 
 export function ProductsPageClient({
@@ -30,9 +34,11 @@ export function ProductsPageClient({
   initialTotal,
   initialPage,
   initialTotalPages,
+  initialSoldCounts,
   imageCounts,
   primaryImages,
   categoryMap,
+  mode,
 }: ProductsPageClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -48,11 +54,15 @@ export function ProductsPageClient({
   const [categoryName, setCategoryName] = React.useState('');
   const [categoryError, setCategoryError] = React.useState<string | null>(null);
   const [isSavingCategory, setIsSavingCategory] = React.useState(false);
+  const [deleteProductId, setDeleteProductId] = React.useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
+  const deleteProduct = products.find((p) => p.id === deleteProductId);
 
   const handleArchive = async (product: Product) => {
     if (
       !confirm(
-        `Deactivate "${product.name}"? It will no longer be visible to customers.`
+        `Archive "${product.name}"? It will no longer be visible to customers or in your active products list.`
       )
     ) {
       return;
@@ -62,16 +72,16 @@ export function ProductsPageClient({
       const response = await fetch(`/api/products/${product.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: false }),
+        body: JSON.stringify({ is_archived: true }),
       });
 
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
-        toast.error(result.error ?? 'Failed to deactivate product');
+        toast.error(result.error ?? 'Failed to archive product');
         return;
       }
 
-      toast.success('Product deactivated');
+      toast.success('Product archived');
       router.refresh();
     } catch {
       toast.error('An error occurred. Please try again.');
@@ -83,19 +93,52 @@ export function ProductsPageClient({
       const response = await fetch(`/api/products/${product.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: true }),
+        body: JSON.stringify({ is_archived: false }),
       });
 
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
-        toast.error(result.error ?? 'Failed to activate product');
+        toast.error(result.error ?? 'Failed to restore product');
         return;
       }
 
-      toast.success('Product activated');
+      toast.success('Product restored');
       router.refresh();
     } catch {
       toast.error('An error occurred. Please try again.');
+    }
+  };
+
+  const handleDeleteClick = (product: Product) => {
+    setDeleteProductId(product.id);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteProductId) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/products/${deleteProductId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-confirm-delete': 'true',
+        },
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        toast.error(result.error ?? 'Failed to delete product');
+        return;
+      }
+
+      toast.success('Product permanently deleted');
+      setDeleteProductId(null);
+      router.refresh();
+    } catch {
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -148,6 +191,7 @@ export function ProductsPageClient({
       setCategoryName('');
       setCategoryError(null);
       setIsCreatingCategory(false);
+      setIsSavingCategory(false);
       router.refresh();
     } catch {
       toast.error('An error occurred. Please try again.');
@@ -161,6 +205,8 @@ export function ProductsPageClient({
     router.push(`${pathname}?${params.toString()}`);
   };
 
+  const isArchived = mode === 'archived';
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-5 rounded-[28px] border border-violet-200/80 bg-[linear-gradient(135deg,rgba(248,245,255,0.95),rgba(239,248,255,0.9))] p-5 shadow-[0_20px_55px_-35px_rgba(76,29,149,0.45)] sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -170,13 +216,25 @@ export function ProductsPageClient({
             Catalog workspace
           </div>
           <h1 className="mt-2 text-3xl font-bold tracking-[-0.06em] text-slate-900">
-            Products
+            {isArchived ? 'Archived Products' : 'Products'}
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            {total} {total === 1 ? 'product' : 'products'} in your catalog
+            {total} {total === 1 ? 'product' : 'products'} {isArchived ? 'archived' : 'in your catalog'}
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {!isArchived && (
+            <Button
+              variant="outline"
+              className="h-11 border-violet-200 text-violet-700 hover:bg-violet-50"
+              asChild
+            >
+              <Link href="/dashboard/products/archived">
+                <Archive className="h-4 w-4 mr-2" />
+                Archived
+              </Link>
+            </Button>
+          )}
           <Button
             variant="outline"
             className="h-11 border-violet-200 text-violet-700 hover:bg-violet-50"
@@ -185,15 +243,17 @@ export function ProductsPageClient({
             <Tag className="h-4 w-4 mr-2" />
             Create category
           </Button>
-          <Button
-            asChild
-            className="h-11 bg-violet-600 shadow-[0_10px_24px_-12px_rgba(124,58,237,0.8)] hover:bg-violet-700"
-          >
-            <Link href="/dashboard/products/new">
-              <Plus className="h-4 w-4 mr-2" />
-              Add product
-            </Link>
-          </Button>
+          {!isArchived && (
+            <Button
+              asChild
+              className="h-11 bg-violet-600 shadow-[0_10px_24px_-12px_rgba(124,58,237,0.8)] hover:bg-violet-700"
+            >
+              <Link href="/dashboard/products/new">
+                <Plus className="h-4 w-4 mr-2" />
+                Add product
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -254,11 +314,13 @@ export function ProductsPageClient({
         <ProductTable
           products={products}
           categoryMap={categoryMap}
-          imageCounts={imageCounts}
+          soldCounts={initialSoldCounts}
           primaryImages={primaryImages}
           onSelect={setSelectedProduct}
-          onArchive={handleArchive}
-          onRestore={handleRestore}
+          onArchive={isArchived ? undefined : handleArchive}
+          onRestore={isArchived ? handleRestore : undefined}
+          onDelete={isArchived ? handleDeleteClick : undefined}
+          showArchivedStatus={isArchived}
         />
       )}
 
@@ -267,16 +329,14 @@ export function ProductsPageClient({
         <div className="rounded-xl border border-dashed border-border bg-muted/30 p-8 sm:p-12 text-center">
           <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-base font-semibold mb-1">
-            {searchParams.toString()
-              ? 'No products found'
-              : 'Your catalog is empty'}
+            {isArchived ? 'No archived products' : 'Your catalog is empty'}
           </h3>
           <p className="text-sm text-muted-foreground mb-4">
-            {searchParams.toString()
-              ? 'Try adjusting your filters or search.'
+            {isArchived
+              ? 'Archived products will appear here.'
               : 'Add your first product to start building your store.'}
           </p>
-          {!searchParams.toString() && (
+          {!isArchived && (
             <Button asChild size="sm">
               <Link href="/dashboard/products/new">
                 <Plus className="h-4 w-4 mr-2" />
@@ -339,6 +399,34 @@ export function ProductsPageClient({
           setSelectedProduct(null);
         }}
       />
+
+      {deleteProductId && deleteProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/25 backdrop-blur-[2px]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold text-slate-900">Delete product permanently?</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              This will permanently remove <span className="font-semibold">{deleteProduct.name}</span> and all of its associated data. This action cannot be undone.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteProductId(null)}
+                disabled={isDeleting}
+                className="h-11"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+                className="h-11 bg-red-600 hover:bg-red-700"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete permanently'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

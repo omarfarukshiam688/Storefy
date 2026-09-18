@@ -1,12 +1,13 @@
 import { redirect } from 'next/navigation';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getTenantContext } from '@/lib/auth/tenant';
-import { getProduct, listCategories, listProductImages } from '@/lib/products';
+import { getProduct, listCategories } from '@/lib/products';
+import { listProductImages } from '@/lib/products/images';
 import { getProductImagesSignedUrls } from '@/lib/storage';
 import { ProductForm } from '@/components/admin/product-form';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ImageOff } from 'lucide-react';
 
 export default async function ProductDetailPage({
   params,
@@ -45,9 +46,14 @@ export default async function ProductDetailPage({
 
   const categories = await listCategories(context.activeTenant.id);
 
+  const images = await listProductImages(context.activeTenant.id, id);
+  const imagesWithUrls = await getProductImagesSignedUrls(images, 3600, { width: 800, quality: 80 });
+
+  const primaryImage = imagesWithUrls.find((img) => img.is_primary) ?? imagesWithUrls[0] ?? null;
+  const primaryImageUrl = primaryImage?.url ?? null;
+  const imageCount = imagesWithUrls.length;
+
   if (mode === 'edit') {
-    const images = await listProductImages(context.activeTenant.id, id);
-    const imagesWithUrls = await getProductImagesSignedUrls(images, 3600, { width: 800, quality: 80 });
     console.log('[DIAGNOSTIC] page.tsx imagesWithUrls count:', imagesWithUrls.length, imagesWithUrls.map(i => ({ id: i.id, storage_path: i.storage_path, url: i.url })));
 
     return (
@@ -102,6 +108,31 @@ export default async function ProductDetailPage({
                 Back to products
               </Link>
             </Button>
+          </div>
+
+          <div className="overflow-hidden rounded-[24px] border border-violet-100 bg-[linear-gradient(135deg,#f6f2ff,#eef8ff)] p-3">
+            <div className="flex h-64 items-center justify-center overflow-hidden rounded-[18px] border border-white/80 bg-white/75">
+              {primaryImageUrl ? (
+                <img
+                  src={primaryImageUrl}
+                  alt={product.name}
+                  className="h-full w-full object-contain p-5"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-slate-400">
+                  <ImageOff className="h-10 w-10" />
+                  <span className="text-xs font-medium">No product image</span>
+                </div>
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between px-1 text-xs text-slate-500">
+              <span>
+                {imageCount} {imageCount === 1 ? 'image' : 'images'} uploaded
+              </span>
+              <span className="font-semibold text-violet-700">
+                {product.sku ?? 'No SKU'}
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

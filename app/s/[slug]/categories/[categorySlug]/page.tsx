@@ -115,7 +115,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
 
       {productsResult.products.length > 0 ? (
         <>
-          <ProductGrid products={productsResult.products} imageUrls={imageUrlMap} />
+          <ProductGrid products={productsResult.products} imageUrls={imageUrlMap} tenantSlug={slug} />
 
           {productsResult.total_pages > 1 && (
             <nav className="mt-10 flex items-center justify-center gap-2" aria-label="Pagination">

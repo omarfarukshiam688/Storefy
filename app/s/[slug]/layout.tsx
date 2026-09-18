@@ -2,7 +2,8 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { StoreHeader } from '@/components/storefront/store-header';
 import { StoreFooter } from '@/components/storefront/store-footer';
-import { getTenantBySlug } from '@/lib/storefront';
+import { PageTransition } from '@/components/storefront/page-transition';
+import { getTenantBySlug, getStoreLogoUrl, getStoreFaviconUrl } from '@/lib/storefront';
 
 interface StorefrontLayoutProps {
   children: React.ReactNode;
@@ -21,10 +22,13 @@ export async function generateMetadata({ params }: StorefrontLayoutProps): Promi
 
   const settings = tenant.settings as Record<string, unknown> | null;
   const description = settings?.description as string | undefined;
+  const faviconPath = settings?.favicon_url as string | undefined;
+  const faviconUrl = await getStoreFaviconUrl(faviconPath);
 
   return {
     title: tenant.name,
     description: description || `Welcome to ${tenant.name}`,
+    icons: faviconUrl ? { icon: faviconUrl } : undefined,
     openGraph: {
       title: tenant.name,
       description: description || `Welcome to ${tenant.name}`,
@@ -45,7 +49,8 @@ export default async function StorefrontLayout({
   }
 
   const settings = tenant.settings as Record<string, unknown> | null;
-  const logoUrl = settings?.logo_url as string | undefined;
+  const logoPath = settings?.logo_url as string | undefined;
+  const logoUrl = await getStoreLogoUrl(logoPath);
   const primaryColor = (settings?.primary_color as string) || '#111111';
 
   return (
@@ -58,7 +63,11 @@ export default async function StorefrontLayout({
       }
     >
       <StoreHeader storeName={tenant.name} logoUrl={logoUrl} primaryColor={primaryColor} tenant={tenant} />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1">
+        <PageTransition>
+          {children}
+        </PageTransition>
+      </main>
       <StoreFooter tenant={tenant} />
     </div>
   );

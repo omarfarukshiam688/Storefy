@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
-import { getProduct, updateProduct, archiveProduct, restoreProduct } from '@/lib/products';
+import { getProduct, updateProduct, archiveProduct, restoreProduct, deleteProduct } from '@/lib/products';
 import { updateProductSchema } from '@/lib/validation/product';
 
 export async function GET(
@@ -41,12 +41,12 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
-    if (body.is_active === false && (body.is_active === true || Object.keys(body).length === 1)) {
+    if (body.is_archived === true && Object.keys(body).length === 1) {
       const product = await archiveProduct(context.activeTenant.id, id);
       return NextResponse.json(product);
     }
 
-    if (body.is_active === true && Object.keys(body).length === 1) {
+    if (body.is_archived === false && Object.keys(body).length === 1) {
       const product = await restoreProduct(context.activeTenant.id, id);
       return NextResponse.json(product);
     }
@@ -70,5 +70,36 @@ export async function PATCH(
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to update product' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const context = await getTenantContext();
+    if (!context.activeTenant) {
+      return NextResponse.json({ error: 'No active tenant' }, { status: 403 });
+    }
+
+    const { id } = await params;
+
+    const confirmed = req.headers.get('x-confirm-delete') === 'true';
+    if (!confirmed) {
+      return NextResponse.json({ error: 'Delete confirmation required' }, { status: 400 });
+    }
+
+    await deleteProduct(context.activeTenant.id, id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Product delete error:', error);
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === 'Product not found') {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to delete product' }, { status: 500 });
   }
 }

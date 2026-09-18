@@ -7,9 +7,10 @@ import type { Product } from '@/types';
 interface ProductGridProps {
   products: Product[];
   imageUrls: Map<string, string | null>;
+  tenantSlug: string;
 }
 
-export function ProductGrid({ products, imageUrls }: ProductGridProps) {
+export function ProductGrid({ products, imageUrls, tenantSlug }: ProductGridProps) {
   if (products.length === 0) {
     return null;
   }
@@ -21,6 +22,7 @@ export function ProductGrid({ products, imageUrls }: ProductGridProps) {
           key={product.id}
           product={product}
           imageUrl={imageUrls.get(product.id) || null}
+          tenantSlug={tenantSlug}
         />
       ))}
     </div>

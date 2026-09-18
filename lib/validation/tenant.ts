@@ -76,8 +76,8 @@ export const updateTenantSettingsSchema = z.object({
       return validTimezones.includes(tz);
     }, 'Invalid timezone')
     .optional(),
-  logo_url: z.string().url('Invalid logo URL').nullable().optional(),
-  favicon_url: z.string().url('Invalid favicon URL').nullable().optional(),
+  logo_url: z.string().nullable().optional(),
+  favicon_url: z.string().nullable().optional(),
   primary_color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid color format. Use hex like #111111')
