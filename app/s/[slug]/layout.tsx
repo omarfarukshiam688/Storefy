@@ -46,10 +46,18 @@ export default async function StorefrontLayout({
 
   const settings = tenant.settings as Record<string, unknown> | null;
   const logoUrl = settings?.logo_url as string | undefined;
+  const primaryColor = (settings?.primary_color as string) || '#111111';
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
-      <StoreHeader storeName={tenant.name} logoUrl={logoUrl} />
+    <div
+      className="min-h-screen bg-white text-slate-900"
+      style={
+        {
+          '--brand-primary': primaryColor,
+        } as React.CSSProperties
+      }
+    >
+      <StoreHeader storeName={tenant.name} logoUrl={logoUrl} primaryColor={primaryColor} tenant={tenant} />
       <main className="flex-1">{children}</main>
       <StoreFooter tenant={tenant} />
     </div>

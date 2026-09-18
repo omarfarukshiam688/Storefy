@@ -137,16 +137,27 @@ export async function updateTenantSettings(
 
   const { name, ...settingsUpdates } = updates as { name?: string } & Record<string, unknown>;
 
+  // Fetch current tenant to merge settings
+  const { data: currentTenant, error: fetchError } = await supabase
+    .from('tenants')
+    .select('settings')
+    .eq('id', tenantId)
+    .single();
+
+  if (fetchError || !currentTenant) {
+    throw new Error(`Failed to fetch tenant: ${fetchError?.message}`);
+  }
+
+  const currentSettings = (currentTenant.settings as Record<string, unknown>) || {};
+  const mergedSettings = { ...currentSettings, ...settingsUpdates };
+
   const updatePayload: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
+    settings: mergedSettings,
   };
 
   if (name !== undefined) {
     updatePayload.name = name;
-  }
-
-  if (Object.keys(settingsUpdates).length > 0) {
-    updatePayload.settings = settingsUpdates;
   }
 
   const { data: tenant, error } = await supabase

@@ -6,13 +6,16 @@ import { usePathname } from 'next/navigation';
 import { Menu, X, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import type { Tenant } from '@/types';
 
 interface StoreHeaderProps {
   storeName: string;
   logoUrl?: string | null;
+  primaryColor?: string;
+  tenant?: Tenant;
 }
 
-export function StoreHeader({ storeName, logoUrl }: StoreHeaderProps) {
+export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111' }: StoreHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const pathname = usePathname();
 
@@ -29,8 +32,12 @@ export function StoreHeader({ storeName, logoUrl }: StoreHeaderProps) {
     return pathname.includes(href.replace('./', ''));
   };
 
+  const headerStyle = {
+    '--brand-primary': primaryColor,
+  } as React.CSSProperties;
+
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl" style={headerStyle}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <Link
           href="/"
@@ -60,7 +67,7 @@ export function StoreHeader({ storeName, logoUrl }: StoreHeaderProps) {
               className={cn(
                 'text-sm font-medium transition-colors',
                 isActive(link.href)
-                  ? 'text-violet-700'
+                  ? 'text-[var(--brand-primary,theme(colors.violet.700))]'
                   : 'text-slate-600 hover:text-slate-900'
               )}
             >

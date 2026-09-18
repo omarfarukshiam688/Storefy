@@ -183,6 +183,77 @@ export interface ProductImage {
   updated_at: string;
 }
 
+export type StorefrontSectionKey =
+  | 'hero'
+  | 'categories'
+  | 'featured_products'
+  | 'why_choose_us'
+  | 'about_us'
+  | 'reviews'
+  | 'contact'
+  | 'footer';
+
+export interface TenantStorefrontSection {
+  id: string;
+  tenant_id: string;
+  section_key: StorefrontSectionKey;
+  is_enabled: boolean;
+  display_order: number;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HeroSectionConfig {
+  heading: string;
+  subheading: string;
+  cta_label: string;
+  cta_destination: string;
+  image_path: string | null;
+}
+
+export interface BenefitsItem {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface WhyChooseUsSectionConfig {
+  heading: string;
+  description: string;
+  benefits: BenefitsItem[];
+}
+
+export interface AboutUsSectionConfig {
+  heading: string;
+  description: string;
+  image_path: string | null;
+}
+
+export interface ReviewsSectionConfig {
+  heading: string;
+  description: string;
+}
+
+export interface CategoriesSectionConfig {
+  heading: string;
+  description: string;
+}
+
+export interface FeaturedProductsSectionConfig {
+  heading: string;
+  description: string;
+}
+
+export interface ContactSectionConfig {
+  heading: string;
+  description: string;
+}
+
+export interface FooterSectionConfig {
+  description: string;
+}
+
 export interface RateLimitLog {
   id: string;
   tenant_id: string | null;

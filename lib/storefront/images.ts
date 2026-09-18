@@ -20,6 +20,14 @@ export async function getStoreLogoUrl(
   return getStoreAssetSignedUrl(logoPath, expiresIn);
 }
 
+export async function getHeroImageSignedUrl(
+  storagePath: string,
+  expiresIn = 3600
+): Promise<string | null> {
+  if (!storagePath) return null;
+  return getStoreAssetSignedUrl(storagePath, expiresIn);
+}
+
 export async function enrichProductImagesWithUrls(
   images: ProductImage[],
   expiresIn = 3600,

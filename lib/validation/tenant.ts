@@ -78,6 +78,11 @@ export const updateTenantSettingsSchema = z.object({
     .optional(),
   logo_url: z.string().url('Invalid logo URL').nullable().optional(),
   favicon_url: z.string().url('Invalid favicon URL').nullable().optional(),
+  primary_color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid color format. Use hex like #111111')
+    .nullable()
+    .optional(),
 });
 
 export const updateTenantSlugSchema = z.object({

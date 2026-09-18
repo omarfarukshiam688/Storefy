@@ -155,6 +155,43 @@ export async function deleteProductImageFile(storagePath: string): Promise<{ err
   return { error: error ? new Error(error.message) : null };
 }
 
+export async function uploadStoreAssetFile(
+  file: File,
+  storagePath: string,
+  mimeType: string
+): Promise<{ error: Error | null }> {
+  const supabase = createServiceClient();
+  const arrayBuffer = await file.arrayBuffer();
+  const { error } = await supabase.storage
+    .from(STORE_ASSETS_BUCKET)
+    .upload(storagePath, arrayBuffer, { contentType: mimeType, upsert: false });
+  return { error: error ? new Error(error.message) : null };
+}
+
+export async function deleteStoreAssetFile(storagePath: string): Promise<{ error: Error | null }> {
+  const supabase = createServiceClient();
+  const { error } = await supabase.storage
+    .from(STORE_ASSETS_BUCKET)
+    .remove([storagePath]);
+  return { error: error ? new Error(error.message) : null };
+}
+
+export function buildStorefrontHeroImagePath(
+  tenantId: string,
+  imageId: string,
+  extension: string
+): string {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(tenantId) || !uuidRegex.test(imageId)) {
+    throw new Error('Invalid UUID');
+  }
+  const ext = extension.toLowerCase();
+  if (!ALLOWED_EXTENSIONS.includes(ext as (typeof ALLOWED_EXTENSIONS)[number])) {
+    throw new Error('Invalid extension');
+  }
+  return `tenant/${tenantId}/branding/hero/${imageId}.${ext}`;
+}
+
 export async function getStoreAssetSignedUrl(
   storagePath: string,
   expiresIn = 3600
@@ -165,4 +202,11 @@ export async function getStoreAssetSignedUrl(
     .createSignedUrl(storagePath, expiresIn);
   if (error) return null;
   return data.signedUrl;
+}
+
+export async function getHeroImageSignedUrl(
+  storagePath: string,
+  expiresIn = 3600
+): Promise<string | null> {
+  return getStoreAssetSignedUrl(storagePath, expiresIn);
 }

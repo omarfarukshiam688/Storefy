@@ -11,6 +11,7 @@ import {
   X,
   ChevronRight,
   Sparkles,
+  LayoutGrid,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ interface SidebarProps {
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/products', label: 'Products', icon: Package },
+  { href: '/dashboard/storefront', label: 'Storefront', icon: LayoutGrid },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 

@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/admin';
-import type { Tenant, Product, Category, ProductImage } from '@/types';
+import type { Tenant, Product, Category, ProductImage, TenantStorefrontSection } from '@/types';
 
 export interface StorefrontProductFilters {
   search?: string;
@@ -196,4 +196,41 @@ export async function getProductImages(
   return (data ?? []) as ProductImage[];
 }
 
-export { enrichProductImagesWithUrls, getPrimaryImageUrlsForProducts } from './images';
+export async function getStorefrontSections(
+  tenantId: string
+): Promise<TenantStorefrontSection[]> {
+  const supabase = createServiceClient();
+
+  const { data, error } = await supabase
+    .from('tenant_storefront_sections')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to fetch storefront sections: ${error.message}`);
+  }
+
+  return (data ?? []) as TenantStorefrontSection[];
+}
+
+export async function getEnabledStorefrontSections(
+  tenantId: string
+): Promise<TenantStorefrontSection[]> {
+  const supabase = createServiceClient();
+
+  const { data, error } = await supabase
+    .from('tenant_storefront_sections')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('is_enabled', true)
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to fetch storefront sections: ${error.message}`);
+  }
+
+  return (data ?? []) as TenantStorefrontSection[];
+}
+
+export { enrichProductImagesWithUrls, getPrimaryImageUrlsForProducts, getHeroImageSignedUrl } from './images';

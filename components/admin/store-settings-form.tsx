@@ -27,6 +27,7 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
     timezone: (tenant.settings?.timezone as string) || 'UTC',
     logo_url: (tenant.settings?.logo_url as string) || '',
     favicon_url: (tenant.settings?.favicon_url as string) || '',
+    primary_color: (tenant.settings?.primary_color as string) || '#111111',
   });
 
   const handleChange = (
@@ -349,6 +350,36 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
           {errors.favicon_url && (
             <p className="text-sm font-medium text-destructive">
               {errors.favicon_url}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2.5">
+          <Label htmlFor="primary_color" className="text-sm font-semibold">
+            Primary Brand Color
+          </Label>
+          <div className="flex items-center gap-3">
+            <div
+              className="h-10 w-16 rounded-lg border border-border shadow-sm"
+              style={{ backgroundColor: formData.primary_color }}
+            />
+            <Input
+              id="primary_color"
+              name="primary_color"
+              type="text"
+              value={formData.primary_color}
+              onChange={handleChange}
+              disabled={isSubmitting}
+              className="h-11 px-4 text-base font-mono text-sm"
+              placeholder="#111111"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Used for CTA buttons, links, and accent elements on your storefront.
+          </p>
+          {errors.primary_color && (
+            <p className="text-sm font-medium text-destructive">
+              {errors.primary_color}
             </p>
           )}
         </div>
