@@ -12,9 +12,9 @@ export function ContactSection({ tenant }: ContactSectionProps) {
 
   return (
     <section className="border-t border-slate-100 bg-white">
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-3">
-          <div className="lg:pr-8">
+      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="lg:pr-8 rounded-2xl border border-slate-200/80 bg-slate-50/50 p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md">
             <h2 className="text-2xl font-bold tracking-[-0.04em] text-slate-900 sm:text-3xl">
               Get in Touch
             </h2>
@@ -23,7 +23,7 @@ export function ContactSection({ tenant }: ContactSectionProps) {
             </p>
           </div>
 
-          <div>
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md">
             <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-900">
               Contact
             </h3>
@@ -59,7 +59,7 @@ export function ContactSection({ tenant }: ContactSectionProps) {
             </ul>
           </div>
 
-          <div>
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md">
             <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-900">
               Store
             </h3>

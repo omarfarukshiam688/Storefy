@@ -1,7 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { updateTenantSettingsSchema, updateTenantSlugSchema } from '@/lib/validation/tenant';
+import {
+  updateTenantSettingsSchema,
+  updateTenantSlugSchema,
+} from '@/lib/validation/tenant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,8 +28,6 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
     address: (tenant.settings?.address as string) || '',
     currency: (tenant.settings?.currency as string) || 'USD',
     timezone: (tenant.settings?.timezone as string) || 'UTC',
-    logo_url: (tenant.settings?.logo_url as string) || '',
-    favicon_url: (tenant.settings?.favicon_url as string) || '',
     primary_color: (tenant.settings?.primary_color as string) || '#111111',
   });
 
@@ -48,7 +49,8 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
       const { slug, ...settingsData } = formData;
 
       // Validate settings (excluding slug)
-      const validatedSettings = updateTenantSettingsSchema.safeParse(settingsData);
+      const validatedSettings =
+        updateTenantSettingsSchema.safeParse(settingsData);
       if (!validatedSettings.success) {
         const fieldErrors: Record<string, string> = {};
         for (const issue of validatedSettings.error.issues) {
@@ -60,11 +62,14 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
       }
 
       // Update settings
-      const settingsResponse = await fetch(`/api/tenants/${tenant.id}/settings`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(validatedSettings.data),
-      });
+      const settingsResponse = await fetch(
+        `/api/tenants/${tenant.id}/settings`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(validatedSettings.data),
+        }
+      );
 
       if (!settingsResponse.ok) {
         const result = await settingsResponse.json();
@@ -130,7 +135,9 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
             className="h-11 px-4 text-base"
           />
           {errors.name && (
-            <p className="text-sm font-medium text-destructive">{errors.name}</p>
+            <p className="text-sm font-medium text-destructive">
+              {errors.name}
+            </p>
           )}
         </div>
 
@@ -152,26 +159,28 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
             Used in your store URL. Changes may affect existing links.
           </p>
           {errors.slug && (
-            <p className="text-sm font-medium text-destructive">{errors.slug}</p>
+            <p className="text-sm font-medium text-destructive">
+              {errors.slug}
+            </p>
           )}
         </div>
       </div>
 
       {/* Description */}
-      <div className="space-y-2.5">
-        <Label htmlFor="description" className="text-sm font-semibold">
-          Store description
-        </Label>
-        <textarea
-          id="description"
-          name="description"
-          value={formData.description}
-          onChange={handleChange}
-          disabled={isSubmitting}
-          rows={4}
-          className="w-full rounded-lg border border-input bg-background px-4 py-3 text-base shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder="Tell customers about your store"
-        />
+        <div className="space-y-2.5">
+          <Label htmlFor="description" className="text-sm font-semibold">
+            Store description
+          </Label>
+          <textarea
+            id="description"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            disabled={isSubmitting}
+            rows={4}
+            className="w-full rounded-lg border border-input bg-background px-4 py-3 text-base shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="2 or 3 sentence recommend"
+          />
         {errors.description && (
           <p className="text-sm font-medium text-destructive">
             {errors.description}
@@ -310,50 +319,6 @@ export function StoreSettingsForm({ tenant, onSaved }: SettingsFormProps) {
 
       {/* Media */}
       <div className="space-y-4">
-        <h3 className="text-base font-semibold">Media</h3>
-
-        <div className="space-y-2.5">
-          <Label htmlFor="logo_url" className="text-sm font-semibold">
-            Logo URL
-          </Label>
-          <Input
-            id="logo_url"
-            name="logo_url"
-            type="url"
-            value={formData.logo_url}
-            onChange={handleChange}
-            disabled={isSubmitting}
-            className="h-11 px-4 text-base"
-            placeholder="https://example.com/logo.png"
-          />
-          {errors.logo_url && (
-            <p className="text-sm font-medium text-destructive">
-              {errors.logo_url}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2.5">
-          <Label htmlFor="favicon_url" className="text-sm font-semibold">
-            Favicon URL
-          </Label>
-          <Input
-            id="favicon_url"
-            name="favicon_url"
-            type="url"
-            value={formData.favicon_url}
-            onChange={handleChange}
-            disabled={isSubmitting}
-            className="h-11 px-4 text-base"
-            placeholder="https://example.com/favicon.ico"
-          />
-          {errors.favicon_url && (
-            <p className="text-sm font-medium text-destructive">
-              {errors.favicon_url}
-            </p>
-          )}
-        </div>
-
         <div className="space-y-2.5">
           <Label htmlFor="primary_color" className="text-sm font-semibold">
             Primary Brand Color

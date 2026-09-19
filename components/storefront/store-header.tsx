@@ -13,26 +13,30 @@ interface StoreHeaderProps {
   storeName: string;
   logoUrl?: string | null;
   primaryColor?: string;
+  tenantSlug?: string;
   tenant?: Tenant;
 }
 
-export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111' }: StoreHeaderProps) {
+export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111', tenantSlug = '' }: StoreHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const pathname = usePathname();
   const { cartCount, openCart } = useCart();
 
+  const homePath = `/s/${tenantSlug}`;
+  const productsPath = `/s/${tenantSlug}/products`;
+  const cartPath = `/s/${tenantSlug}/cart`;
+
   const navLinks = [
-    { href: '.', label: 'Home' },
-    { href: './products', label: 'Products' },
-    { href: './cart', label: 'Cart' },
+    { href: homePath, label: 'Home' },
+    { href: productsPath, label: 'Products' },
+    { href: cartPath, label: 'Cart' },
   ];
 
   const isActive = (href: string) => {
-    if (href === '.') {
-      return pathname === '/' || pathname.endsWith('/products') || pathname.endsWith('/categories');
+    if (href === homePath) {
+      return pathname === homePath || pathname.endsWith('/products') || pathname.endsWith('/categories');
     }
-    const target = href.replace('./', '');
-    return pathname.endsWith(`/${target}`);
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   const headerStyle = {
@@ -43,7 +47,7 @@ export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111' }: St
     <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl" style={headerStyle}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <Link
-          href="/"
+          href={homePath}
           className="flex items-center gap-2.5"
         >
           {logoUrl ? (
@@ -62,30 +66,13 @@ export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111' }: St
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                'text-sm font-medium transition-colors',
-                isActive(link.href)
-                  ? 'text-[var(--brand-primary,theme(colors.violet.700))]'
-                  : 'text-slate-600 hover:text-slate-900'
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-
         <nav className="hidden items-center gap-6 md:flex">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               className={cn(
-                'text-sm font-medium transition-colors',
+                'text-sm font-medium transition-all',
                 isActive(link.href)
                   ? 'text-[var(--brand-primary,theme(colors.violet.700))]'
                   : 'text-slate-600 hover:text-slate-900'

@@ -9,12 +9,14 @@ interface DashboardShellProps {
   children: React.ReactNode;
   profileName?: string | null;
   storeName?: string | null;
+  role?: 'tenant_admin' | 'tenant_staff' | null;
 }
 
 export function DashboardShell({
   children,
   profileName,
   storeName,
+  role,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
@@ -24,6 +26,7 @@ export function DashboardShell({
         <Sidebar
           profileName={profileName}
           storeName={storeName}
+          role={role}
           isOpen={sidebarOpen}
           onOpenChange={setSidebarOpen}
         />

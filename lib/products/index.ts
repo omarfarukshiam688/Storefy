@@ -331,6 +331,21 @@ export async function updateCategory(tenantId: string, categoryId: string, input
 
 export async function deleteCategory(tenantId: string, categoryId: string): Promise<void> {
   const supabase = await createClient();
+
+  const { count, error: countError } = await supabase
+    .from('products')
+    .select('id', { count: 'exact', head: true })
+    .eq('tenant_id', tenantId)
+    .eq('category_id', categoryId);
+
+  if (countError) {
+    throw new Error(`Failed to check category usage: ${countError.message}`);
+  }
+
+  if ((count ?? 0) > 0) {
+    throw new Error('Cannot delete category because it still has products. Move or remove those products first.');
+  }
+
   const { error } = await supabase
     .from('categories')
     .delete()

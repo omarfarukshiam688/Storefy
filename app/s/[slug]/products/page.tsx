@@ -79,7 +79,7 @@ export default async function ProductsPage({ params, searchParams }: ProductsPag
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       <div className="mb-8">
         <Button asChild variant="ghost" size="sm" className="-ml-2 mb-4">
-          <Link href="/">
+          <Link href={`/s/${slug}`}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             Back to store
           </Link>
@@ -104,7 +104,7 @@ export default async function ProductsPage({ params, searchParams }: ProductsPag
 
       {categories.length > 0 && (
         <div className="mb-8">
-          <CategoryNav categories={categories} />
+          <CategoryNav categories={categories} tenantSlug={slug} />
         </div>
       )}
 

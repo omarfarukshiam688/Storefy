@@ -29,7 +29,7 @@ export function WhyChooseUsSection({ config }: WhyChooseUsSectionProps) {
           {benefits.map((benefit, index) => (
             <div
               key={index}
-              className="rounded-xl border border-border bg-white p-6 shadow-sm"
+              className="rounded-xl border border-border bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
                 <span className="text-sm font-semibold">{benefit.title?.charAt(0) || '•'}</span>

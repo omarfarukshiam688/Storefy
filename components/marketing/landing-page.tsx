@@ -282,10 +282,10 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <div
       className={cn(
-        'fixed inset-0 z-50 bg-slate-950/25 backdrop-blur-sm transition-opacity duration-200 lg:hidden',
+        'fixed inset-0 z-50 bg-slate-950/25 backdrop-blur-sm transition-all duration-200 lg:hidden',
         open
-          ? 'pointer-events-auto opacity-100'
-          : 'pointer-events-none opacity-0'
+          ? 'pointer-events-auto opacity-100 visible'
+          : 'pointer-events-none opacity-0 invisible'
       )}
       aria-hidden={!open}
     >
@@ -313,7 +313,7 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
               key={item.href}
               href={item.href}
               onClick={onClose}
-              className="flex items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-slate-900"
+              className="flex items-center justify-between rounded-xl border border-transparent px-4 py-3.5 text-base font-medium text-slate-700 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-slate-900 touch-manipulation select-none"
             >
               {item.label}
               <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -427,7 +427,7 @@ export function LandingPage() {
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="relative z-50 lg:hidden touch-manipulation"
             onClick={() => setIsMenuOpen(true)}
             aria-label="Open navigation"
           >
@@ -1184,7 +1184,7 @@ export function LandingPage() {
                     className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/80"
                   >
                     <Accordion.Header>
-                      <Accordion.Trigger className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left text-base font-medium text-slate-900 hover:text-violet-700 sm:px-5">
+                      <Accordion.Trigger type="button" className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left text-base font-medium text-slate-900 hover:text-violet-700 sm:px-5 touch-manipulation select-none">
                         <span>{faq.question}</span>
                         <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform duration-300 data-[state=open]:rotate-180" />
                       </Accordion.Trigger>

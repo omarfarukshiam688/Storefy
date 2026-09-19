@@ -8,9 +8,10 @@ import type { Category } from '@/types';
 
 interface CategoryNavProps {
   categories: Category[];
+  tenantSlug: string;
 }
 
-export function CategoryNav({ categories }: CategoryNavProps) {
+export function CategoryNav({ categories, tenantSlug }: CategoryNavProps) {
   const searchParams = useSearchParams();
   const activeCategoryId = searchParams.get('category_id');
 
@@ -18,10 +19,12 @@ export function CategoryNav({ categories }: CategoryNavProps) {
     return null;
   }
 
+  const basePath = `/s/${tenantSlug}`;
+
   return (
     <div className="flex flex-wrap gap-2">
       <Link
-        href="."
+        href={basePath}
         className={cn(
           'inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-all',
           !activeCategoryId
@@ -36,7 +39,7 @@ export function CategoryNav({ categories }: CategoryNavProps) {
         return (
           <Link
             key={category.id}
-            href={`.?category_id=${category.id}`}
+            href={`${basePath}?category_id=${category.id}`}
             className={cn(
               'inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-all',
               isActive

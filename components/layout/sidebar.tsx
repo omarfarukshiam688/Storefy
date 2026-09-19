@@ -22,6 +22,7 @@ import { SignOutButton } from '@/components/auth/sign-out-button';
 interface SidebarProps {
   profileName?: string | null;
   storeName?: string | null;
+  role?: 'tenant_admin' | 'tenant_staff' | null;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
@@ -32,16 +33,21 @@ const navItems = [
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/customers', label: 'Customers', icon: Users },
   { href: '/dashboard/storefront', label: 'Storefront', icon: LayoutGrid },
+];
+
+const adminNavItems = [
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
 function NavContent({
   profileName,
   storeName,
+  role,
   onNavigate,
 }: {
   profileName?: string | null;
   storeName?: string | null;
+  role?: 'tenant_admin' | 'tenant_staff' | null;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -103,6 +109,41 @@ function NavContent({
             </Link>
           );
         })}
+        {role === 'tenant_admin' &&
+          adminNavItems.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  'group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                  active
+                    ? 'bg-violet-100/80 text-violet-700 shadow-[inset_0_0_0_1px_rgba(139,92,246,0.12)]'
+                    : 'text-slate-600 hover:bg-violet-50 hover:text-slate-900'
+                )}
+              >
+                {active && (
+                  <span className="absolute left-0 top-3 h-7 w-1 rounded-r-full bg-violet-600" />
+                )}
+                <div
+                  className={cn(
+                    'flex h-8 w-8 items-center justify-center rounded-xl border transition-colors',
+                    active
+                      ? 'border-violet-200 bg-white text-violet-700'
+                      : 'border-slate-200 bg-slate-50 text-slate-500 group-hover:border-violet-200 group-hover:text-violet-700'
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                </div>
+                <span>{item.label}</span>
+                {active && (
+                  <ChevronRight className="ml-auto h-4 w-4 opacity-80" />
+                )}
+              </Link>
+            );
+          })}
       </nav>
 
       <div className="border-t border-violet-100/80 p-3">
@@ -136,6 +177,7 @@ function NavContent({
 export function Sidebar({
   profileName,
   storeName,
+  role,
   isOpen,
   onOpenChange,
 }: SidebarProps) {
@@ -148,7 +190,7 @@ export function Sidebar({
   return (
     <>
       <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:h-[100dvh] lg:w-[280px] lg:flex-col lg:border-r lg:border-violet-200 lg:bg-[linear-gradient(180deg,rgba(225,218,255,0.97),rgba(205,225,255,0.96))] lg:backdrop-blur-xl">
-        <NavContent profileName={profileName} storeName={storeName} />
+        <NavContent profileName={profileName} storeName={storeName} role={role} />
       </aside>
 
       {open && (
@@ -224,6 +266,37 @@ export function Sidebar({
               </Link>
             );
           })}
+          {role === 'tenant_admin' &&
+            adminNavItems.map((item) => {
+              const isActive =
+                pathname === item.href ||
+                (item.href !== '/dashboard' && pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    'flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                    isActive
+                      ? 'bg-violet-100/80 text-violet-700 shadow-[inset_0_0_0_1px_rgba(139,92,246,0.12)]'
+                      : 'text-slate-600 hover:bg-violet-50 hover:text-slate-900'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'flex h-8 w-8 items-center justify-center rounded-xl border',
+                      isActive
+                        ? 'border-violet-200 bg-white text-violet-700'
+                        : 'border-slate-200 bg-slate-50 text-slate-500'
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                  </div>
+                  {item.label}
+                </Link>
+              );
+            })}
         </nav>
         <div className="border-t border-violet-100/80 p-3">
           <div className="flex items-center gap-3 rounded-2xl border border-violet-100 bg-white/80 p-3">

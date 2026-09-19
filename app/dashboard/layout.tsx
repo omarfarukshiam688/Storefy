@@ -25,6 +25,7 @@ export default async function DashboardLayout({
     <DashboardShell
       profileName={context.profile.name}
       storeName={context.activeTenant?.name ?? null}
+      role={context.role}
     >
       {children}
     </DashboardShell>

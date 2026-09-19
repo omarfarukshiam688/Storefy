@@ -31,7 +31,7 @@ export default function StorefrontClientWrapper({
         className="min-h-screen bg-white text-slate-900"
         style={{ '--brand-primary': primaryColor } as React.CSSProperties}
       >
-        <StoreHeader storeName={storeName} logoUrl={logoUrl} primaryColor={primaryColor} tenant={tenant} />
+        <StoreHeader storeName={storeName} logoUrl={logoUrl} primaryColor={primaryColor} tenantSlug={tenantSlug} tenant={tenant} />
         <main className="flex-1">
           <PageTransition>{children}</PageTransition>
         </main>

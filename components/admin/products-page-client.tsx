@@ -4,13 +4,12 @@ import * as React from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ProductTable } from '@/components/admin/product-table';
 import { ProductFilters } from '@/components/admin/product-filters';
 import { ProductOverviewDrawer } from '@/components/admin/product-overview-drawer';
+import { CategoryManager } from '@/components/admin/category-manager';
 import Link from 'next/link';
-import { Plus, Package, Sparkles, Tag, Archive } from 'lucide-react';
+import { Plus, Package, Sparkles, Archive } from 'lucide-react';
 import type { Product, Category } from '@/types';
 
 type PageMode = 'active' | 'archived';
@@ -50,10 +49,6 @@ export function ProductsPageClient({
   const page = initialPage;
   const totalPages = initialTotalPages;
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
-  const [isCreatingCategory, setIsCreatingCategory] = React.useState(false);
-  const [categoryName, setCategoryName] = React.useState('');
-  const [categoryError, setCategoryError] = React.useState<string | null>(null);
-  const [isSavingCategory, setIsSavingCategory] = React.useState(false);
   const [deleteProductId, setDeleteProductId] = React.useState<string | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
@@ -142,63 +137,6 @@ export function ProductsPageClient({
     }
   };
 
-  const handleCreateCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCategoryError(null);
-
-    const name = categoryName.trim();
-    if (!name) {
-      setCategoryError('Category name is required');
-      return;
-    }
-
-    const slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 255);
-
-    if (!slug) {
-      setCategoryError('Invalid category name');
-      return;
-    }
-
-    setIsSavingCategory(true);
-
-    try {
-      const response = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, slug, description: null, display_order: 0, is_active: true }),
-      });
-
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
-        if (result.details) {
-          const issues = result.details.issues ?? result.details;
-          const message = Array.isArray(issues)
-            ? issues.map((i: { message?: string }) => i.message).join(', ')
-            : result.error ?? 'Failed to create category';
-          setCategoryError(message);
-        } else {
-          setCategoryError(result.error ?? 'Failed to create category');
-        }
-        setIsSavingCategory(false);
-        return;
-      }
-
-      toast.success('Category created');
-      setCategoryName('');
-      setCategoryError(null);
-      setIsCreatingCategory(false);
-      setIsSavingCategory(false);
-      router.refresh();
-    } catch {
-      toast.error('An error occurred. Please try again.');
-      setIsSavingCategory(false);
-    }
-  };
-
   const goToPage = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', String(newPage));
@@ -235,14 +173,6 @@ export function ProductsPageClient({
               </Link>
             </Button>
           )}
-          <Button
-            variant="outline"
-            className="h-11 border-violet-200 text-violet-700 hover:bg-violet-50"
-            onClick={() => setIsCreatingCategory((prev) => !prev)}
-          >
-            <Tag className="h-4 w-4 mr-2" />
-            Create category
-          </Button>
           {!isArchived && (
             <Button
               asChild
@@ -257,53 +187,7 @@ export function ProductsPageClient({
         </div>
       </div>
 
-      {isCreatingCategory && (
-        <form
-          onSubmit={handleCreateCategory}
-          className="rounded-[24px] border border-violet-100 bg-white/75 p-4 shadow-[0_16px_40px_-30px_rgba(76,29,149,0.4)] sm:p-5"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr,auto] gap-4 items-end">
-            <div className="space-y-2.5">
-              <Label htmlFor="quick-category-name" className="text-sm font-semibold">
-                Category name
-              </Label>
-              <Input
-                id="quick-category-name"
-                type="text"
-                value={categoryName}
-                onChange={(e) => {
-                  setCategoryName(e.target.value);
-                  if (categoryError) setCategoryError(null);
-                }}
-                disabled={isSavingCategory}
-                className="h-11 px-4 text-base"
-                placeholder="e.g. Electronics"
-              />
-              {categoryError && (
-                <p className="text-sm font-medium text-destructive">{categoryError}</p>
-              )}
-            </div>
-            <div className="flex gap-3">
-              <Button type="submit" disabled={isSavingCategory} className="h-11 px-6">
-                {isSavingCategory ? 'Saving...' : 'Save'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setIsCreatingCategory(false);
-                  setCategoryName('');
-                  setCategoryError(null);
-                }}
-                disabled={isSavingCategory}
-                className="h-11 px-6"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </form>
-      )}
+      <CategoryManager categories={categories} />
 
       <div className="rounded-[24px] border border-violet-100 bg-white/75 p-4 shadow-[0_16px_40px_-30px_rgba(76,29,149,0.4)] sm:p-5">
         <ProductFilters categories={categories} />

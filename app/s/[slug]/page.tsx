@@ -101,7 +101,7 @@ export default async function StoreHomePage({ params }: StoreHomePageProps) {
               Categories
             </h2>
             <div className="mt-5">
-              <CategoryNav categories={categories} />
+              <CategoryNav categories={categories} tenantSlug={slug} />
             </div>
           </div>
         </section>

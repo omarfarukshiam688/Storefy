@@ -21,7 +21,7 @@ export function ReviewsSection({ config }: ReviewsSectionProps) {
             </p>
           )}
         </div>
-        <div className="mt-10 rounded-xl border border-dashed border-slate-200 bg-white p-12 text-center">
+        <div className="mt-10 rounded-xl border border-dashed border-slate-200 bg-white p-12 text-center transition-all duration-200 hover:border-violet-200 hover:shadow-sm">
           <p className="text-sm text-slate-500">
             Customer reviews will appear here once available.
           </p>
