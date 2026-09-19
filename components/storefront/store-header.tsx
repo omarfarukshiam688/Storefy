@@ -3,9 +3,10 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Store } from 'lucide-react';
+import { Menu, X, Store, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useCart } from '@/lib/cart/cart-context';
 import type { Tenant } from '@/types';
 
 interface StoreHeaderProps {
@@ -18,17 +19,20 @@ interface StoreHeaderProps {
 export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111' }: StoreHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const pathname = usePathname();
+  const { cartCount, openCart } = useCart();
 
   const navLinks = [
     { href: '.', label: 'Home' },
     { href: './products', label: 'Products' },
+    { href: './cart', label: 'Cart' },
   ];
 
   const isActive = (href: string) => {
     if (href === '.') {
       return pathname === '/' || pathname.endsWith('/products') || pathname.endsWith('/categories');
     }
-    return pathname.includes(href.replace('./', ''));
+    const target = href.replace('./', '');
+    return pathname.endsWith(`/${target}`);
   };
 
   const headerStyle = {
@@ -75,15 +79,61 @@ export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111' }: St
           ))}
         </nav>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => setIsMenuOpen(true)}
-          aria-label="Open menu"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
+        <nav className="hidden items-center gap-6 md:flex">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                'text-sm font-medium transition-colors',
+                isActive(link.href)
+                  ? 'text-[var(--brand-primary,theme(colors.violet.700))]'
+                  : 'text-slate-600 hover:text-slate-900'
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={openCart}
+            aria-label="Open cart"
+            className="relative"
+          >
+            <ShoppingCart className="h-5 w-5" />
+            {cartCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                {cartCount > 99 ? '99+' : cartCount}
+              </span>
+            )}
+          </Button>
+        </nav>
+
+        <div className="flex items-center gap-1 md:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={openCart}
+            aria-label="Open cart"
+            className="relative"
+          >
+            <ShoppingCart className="h-5 w-5" />
+            {cartCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                {cartCount > 99 ? '99+' : cartCount}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMenuOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       {isMenuOpen && (

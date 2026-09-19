@@ -4,6 +4,8 @@ import * as React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { Plus } from 'lucide-react';
+import { useCart } from '@/lib/cart/cart-context';
 import type { Product } from '@/types';
 
 interface ProductCardProps {
@@ -26,6 +28,7 @@ const currencySymbols: Record<string, string> = {
 export function ProductCard({ product, imageUrl, tenantSlug }: ProductCardProps) {
   const [imgError, setImgError] = React.useState(false);
   const showFallback = !imageUrl || imgError;
+  const { addToCart } = useCart();
 
   const symbol = currencySymbols[product.currency] || product.currency;
   const isOutOfStock = product.stock_status === 'out_of_stock';
@@ -58,6 +61,22 @@ export function ProductCard({ product, imageUrl, tenantSlug }: ProductCardProps)
           <span className="absolute left-3 top-3 inline-flex items-center rounded-full border border-violet-200 bg-white/90 px-2.5 py-0.5 text-xs font-semibold text-violet-700 shadow-sm">
             Featured
           </span>
+        )}
+        {!isOutOfStock && (
+          <div className="absolute bottom-3 right-3">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                addToCart(product, 1, imageUrl || null);
+              }}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md active:scale-95"
+              aria-label={`Add ${product.name} to cart`}
+            >
+              <Plus className="h-4 w-4 text-slate-700" />
+            </button>
+          </div>
         )}
       </div>
 

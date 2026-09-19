@@ -1,8 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { StoreHeader } from '@/components/storefront/store-header';
-import { StoreFooter } from '@/components/storefront/store-footer';
-import { PageTransition } from '@/components/storefront/page-transition';
+import StorefrontClientWrapper from '@/components/storefront/storefront-client-wrapper';
 import { getTenantBySlug, getStoreLogoUrl, getStoreFaviconUrl } from '@/lib/storefront';
 
 interface StorefrontLayoutProps {
@@ -54,21 +52,15 @@ export default async function StorefrontLayout({
   const primaryColor = (settings?.primary_color as string) || '#111111';
 
   return (
-    <div
-      className="min-h-screen bg-white text-slate-900"
-      style={
-        {
-          '--brand-primary': primaryColor,
-        } as React.CSSProperties
-      }
+    <StorefrontClientWrapper
+      tenantId={tenant.id}
+      tenantSlug={slug}
+      storeName={tenant.name}
+      logoUrl={logoUrl}
+      primaryColor={primaryColor}
+      tenant={tenant}
     >
-      <StoreHeader storeName={tenant.name} logoUrl={logoUrl} primaryColor={primaryColor} tenant={tenant} />
-      <main className="flex-1">
-        <PageTransition>
-          {children}
-        </PageTransition>
-      </main>
-      <StoreFooter tenant={tenant} />
-    </div>
+      {children}
+    </StorefrontClientWrapper>
   );
 }

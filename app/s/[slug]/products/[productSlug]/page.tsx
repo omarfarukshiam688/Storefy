@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ImageGallery } from '@/components/storefront/image-gallery';
+import AddToCart from '@/components/storefront/add-to-cart';
 import { cn } from '@/lib/utils';
 import {
   getTenantBySlug,
@@ -160,6 +161,10 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
               <p className="mt-2 font-mono text-sm text-slate-600">{product.sku}</p>
             </div>
           )}
+
+          <div className="mt-8">
+            <AddToCart product={product} imageUrl={images[0]?.url || null} />
+          </div>
         </div>
       </div>
     </div>
