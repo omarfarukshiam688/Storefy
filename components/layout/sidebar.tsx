@@ -13,6 +13,7 @@ import {
   Sparkles,
   LayoutGrid,
   ShoppingCart,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/products', label: 'Products', icon: Package },
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
+  { href: '/dashboard/customers', label: 'Customers', icon: Users },
   { href: '/dashboard/storefront', label: 'Storefront', icon: LayoutGrid },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];

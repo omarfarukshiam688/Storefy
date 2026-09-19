@@ -141,6 +141,8 @@ export interface OrderItem {
   created_at: string;
 }
 
+export type CustomerStatus = 'active' | 'inactive' | 'blocked';
+
 export interface Customer {
   id: string;
   tenant_id: string;
@@ -150,6 +152,7 @@ export interface Customer {
   address: string | null;
   district: string | null;
   notes: string | null;
+  status: CustomerStatus;
   created_at: string;
   updated_at: string;
 }

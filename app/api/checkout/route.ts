@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/admin';
 import { getTenantBySlug } from '@/lib/storefront';
 import { checkoutRequestSchema } from '@/lib/validation/checkout';
+import { upsertCustomerFromOrder } from '@/lib/customers';
 
 export async function POST(req: NextRequest) {
   try {
@@ -87,6 +88,22 @@ export async function POST(req: NextRequest) {
     const notes = typeof customer.notes === 'string' && customer.notes.trim() !== '' ? customer.notes.trim() : null;
     const finalNotes = email && notes ? `${notes}\nEmail: ${email}` : email || notes || null;
 
+    let customerId: string | null = null;
+    try {
+      const resolvedCustomer = await upsertCustomerFromOrder(tenant.id, {
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        address: customer.deliveryAddress,
+        district: customer.district,
+        notes: customer.notes,
+      }, supabase);
+      customerId = resolvedCustomer.id;
+    } catch (customerError) {
+      console.error('Customer resolution error:', customerError);
+      return NextResponse.json({ error: 'Failed to process customer information' }, { status: 500 });
+    }
+
     const insertPayload: Record<string, unknown> = {
       tenant_id: tenant.id,
       order_number: orderNumber,
@@ -99,7 +116,7 @@ export async function POST(req: NextRequest) {
       payment_method: 'pending',
       payment_status: 'pending',
       order_status: 'pending',
-      customer_id: null,
+      customer_id: customerId,
       notes: finalNotes,
     };
 

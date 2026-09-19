@@ -25,7 +25,7 @@ export interface OrderWithItems extends Order {
   items: OrderItem[];
 }
 
-function normalizeOrder(raw: Partial<Order>): Order {
+export function normalizeOrder(raw: Partial<Order>): Order {
   const paymentStatus: PaymentStatus = ['pending', 'paid', 'failed', 'refunded'].includes(raw.payment_status as PaymentStatus)
     ? (raw.payment_status as PaymentStatus)
     : 'pending';
