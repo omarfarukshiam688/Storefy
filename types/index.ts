@@ -99,20 +99,31 @@ export interface Category {
   updated_at: string;
 }
 
+export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+
 export interface Order {
   id: string;
   tenant_id: string;
   order_number: string;
   customer_name: string;
+  customer_email: string | null;
   phone_number: string;
   district: string;
   delivery_address: string;
   subtotal: number;
   delivery_charge: number;
   payment_method: string;
-  order_status: string;
+  payment_status: PaymentStatus;
+  order_status: OrderStatus;
   customer_id: string | null;
   notes: string | null;
+  confirmed_at: string | null;
+  processing_at: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
+  cancelled_at: string | null;
   created_at: string;
   updated_at: string;
 }

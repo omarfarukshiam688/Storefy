@@ -113,15 +113,21 @@ export default async function DashboardPage() {
           </div>
         </Link>
 
-        <div className="rounded-[26px] border border-slate-200 bg-white/60 p-5 opacity-70 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.2)]">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 shadow-sm">
-            <ShoppingCart className="h-5 w-5" />
+        <Link href="/dashboard/orders" className="group">
+          <div className="flex h-full min-h-[148px] flex-col justify-between rounded-[26px] border border-violet-100 bg-white/80 p-5 shadow-[0_18px_45px_-30px_rgba(76,29,149,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-[0_22px_50px_-30px_rgba(76,29,149,0.45)]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700 shadow-sm">
+              <ShoppingCart className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Orders</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Manage your orders and fulfillment.</p>
+            </div>
+            <div className="flex items-center justify-between text-sm font-medium text-violet-700">
+              <span>Open</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </div>
           </div>
-          <div className="mt-8">
-            <h3 className="text-lg font-semibold text-slate-900">Orders</h3>
-            <p className="mt-1 text-sm leading-6 text-slate-600">Coming soon</p>
-          </div>
-        </div>
+        </Link>
 
         <div className="rounded-[26px] border border-slate-200 bg-white/60 p-5 opacity-70 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.2)]">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 shadow-sm">

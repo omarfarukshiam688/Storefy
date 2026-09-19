@@ -87,22 +87,29 @@ export async function POST(req: NextRequest) {
     const notes = typeof customer.notes === 'string' && customer.notes.trim() !== '' ? customer.notes.trim() : null;
     const finalNotes = email && notes ? `${notes}\nEmail: ${email}` : email || notes || null;
 
+    const insertPayload: Record<string, unknown> = {
+      tenant_id: tenant.id,
+      order_number: orderNumber,
+      customer_name: customer.name.trim(),
+      phone_number: customer.phone.trim(),
+      district: customer.district.trim(),
+      delivery_address: customer.deliveryAddress.trim(),
+      subtotal,
+      delivery_charge: 0,
+      payment_method: 'pending',
+      payment_status: 'pending',
+      order_status: 'pending',
+      customer_id: null,
+      notes: finalNotes,
+    };
+
+    if (email) {
+      insertPayload.customer_email = email;
+    }
+
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .insert({
-        tenant_id: tenant.id,
-        order_number: orderNumber,
-        customer_name: customer.name.trim(),
-        phone_number: customer.phone.trim(),
-        district: customer.district.trim(),
-        delivery_address: customer.deliveryAddress.trim(),
-        subtotal,
-        delivery_charge: 0,
-        payment_method: 'pending',
-        order_status: 'pending',
-        customer_id: null,
-        notes: finalNotes,
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
