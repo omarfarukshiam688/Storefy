@@ -17,6 +17,7 @@ import { WhyChooseUsSection } from '@/components/storefront/why-choose-us-sectio
 import { AboutUsSection } from '@/components/storefront/about-section';
 import { ReviewsSection } from '@/components/storefront/reviews-section';
 import { ContactSection } from '@/components/storefront/contact-section';
+import { getStoreReviews } from '@/lib/reviews';
 import type { HeroSectionConfig, WhyChooseUsSectionConfig, AboutUsSectionConfig, ReviewsSectionConfig } from '@/types';
 
 interface StoreHomePageProps {
@@ -59,10 +60,11 @@ export default async function StoreHomePage({ params }: StoreHomePageProps) {
   const settings = tenant.settings as Record<string, unknown> | null;
   const primaryColor = (settings?.primary_color as string) || '#111111';
 
-  const [sections, categories, allProducts] = await Promise.all([
+  const [sections, categories, allProducts, storeReviews] = await Promise.all([
     getEnabledStorefrontSections(tenant.id),
     getStorefrontCategories(tenant.id),
     getFeaturedProducts(tenant.id, 8),
+    getStoreReviews(tenant.id, 5).catch(() => []),
   ]);
 
   const displayProducts = allProducts.length > 0 ? allProducts : [];
@@ -158,6 +160,7 @@ export default async function StoreHomePage({ params }: StoreHomePageProps) {
       {sections.find((s) => s.section_key === 'reviews')?.is_enabled && (
         <ReviewsSection
           config={(sections.find((s) => s.section_key === 'reviews')?.config || {}) as unknown as ReviewsSectionConfig}
+          reviews={storeReviews}
         />
       )}
 

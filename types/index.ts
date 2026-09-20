@@ -157,16 +157,45 @@ export interface Customer {
   updated_at: string;
 }
 
+export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'hidden';
+
 export interface Review {
   id: string;
   tenant_id: string;
-  product_id: string | null;
-  customer_name: string;
+  product_id: string;
+  customer_id: string | null;
+  order_id: string;
+  order_item_id: string | null;
   rating: number;
   review_text: string;
-  status: "pending" | "approved" | "rejected";
+  status: ReviewStatus;
   created_at: string;
   updated_at: string;
+  customer_name?: string | null;
+  product_name?: string | null;
+}
+
+export interface ReviewSummary {
+  average_rating: number;
+  total_reviews: number;
+  distribution: Record<number, number>;
+}
+
+export interface ReviewFilters {
+  search?: string;
+  status?: 'pending' | 'approved' | 'rejected' | 'hidden' | 'all';
+  sort_by?: 'created_at' | 'updated_at' | 'rating' | 'product_name';
+  sort_order?: 'asc' | 'desc';
+  page?: number;
+  page_size?: number;
+}
+
+export interface PaginatedReviews {
+  reviews: Review[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
 }
 
 export interface FAQ {

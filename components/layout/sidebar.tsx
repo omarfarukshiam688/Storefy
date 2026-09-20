@@ -15,6 +15,7 @@ import {
   ShoppingCart,
   Users,
   UserPlus,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ const navItems = [
 const adminNavItems = [
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
   { href: '/dashboard/team', label: 'Team', icon: UserPlus },
+  { href: '/dashboard/reviews', label: 'Reviews', icon: MessageSquare },
 ];
 
 function NavContent({

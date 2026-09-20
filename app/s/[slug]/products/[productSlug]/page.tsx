@@ -13,6 +13,10 @@ import {
   getStorefrontCategories,
   enrichProductImagesWithUrls,
 } from '@/lib/storefront';
+import { getProductReviews, getProductRatingSummary } from '@/lib/reviews';
+import { ProductReviews } from '@/components/storefront/product-reviews';
+
+import type { Category } from '@/types';
 
 interface ProductDetailPageProps {
   params: Promise<{ slug: string; productSlug: string }>;
@@ -57,9 +61,11 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
     notFound();
   }
 
-  const [rawImages, categories] = await Promise.all([
+  const [rawImages, categories, reviewsData, ratingSummary] = await Promise.all([
     getProductImages(tenant.id, product.id),
     getStorefrontCategories(tenant.id),
+    getProductReviews(tenant.id, product.id, { page: 1, page_size: 10 }),
+    getProductRatingSummary(tenant.id, product.id),
   ]);
 
   const images = await enrichProductImagesWithUrls(rawImages);
@@ -80,7 +86,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
   const isPreorder = product.stock_status === 'preorder';
   const isBackorder = product.stock_status === 'backorder';
 
-  const category = categories.find((c) => c.id === product.category_id);
+  const category = categories.find((c: Category) => c.id === product.category_id);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
@@ -93,10 +99,12 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
         </Button>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
-        <ImageGallery images={images} productName={product.name} />
+      <div className="grid gap-8 lg:grid-cols-2 lg:gap-12 lg:h-[calc(100vh-15rem)]">
+        <div className="lg:sticky lg:top-8 lg:self-start">
+          <ImageGallery images={images} productName={product.name} />
+        </div>
 
-        <div className="flex flex-col">
+        <div className="flex flex-col lg:h-full lg:overflow-y-auto lg:pr-2">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold tracking-[-0.04em] text-slate-900 sm:text-3xl">
@@ -165,6 +173,14 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           <div className="mt-8">
             <AddToCart product={product} imageUrl={images[0]?.url || null} />
           </div>
+
+          <ProductReviews
+            tenantSlug={slug}
+            productId={product.id}
+            initialReviews={reviewsData.reviews}
+            initialSummary={ratingSummary}
+            initialTotalPages={reviewsData.total_pages}
+          />
         </div>
       </div>
     </div>
