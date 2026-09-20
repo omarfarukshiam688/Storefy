@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   ShoppingCart,
   Users,
+  UserPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ const navItems = [
 
 const adminNavItems = [
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard/team', label: 'Team', icon: UserPlus },
 ];
 
 function NavContent({
