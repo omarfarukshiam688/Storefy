@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { getTenantContext } from '@/lib/auth/tenant';
+import { getTenantResourceUsage } from '@/lib/plans/usage';
 import { Button } from '@/components/ui/button';
 import { BrandingEditor } from '@/components/storefront/branding-editor';
 
@@ -29,6 +30,8 @@ export default async function StorefrontBrandingPage() {
     );
   }
 
+  const resourceUsage = await getTenantResourceUsage(context.activeTenant.id);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -50,7 +53,11 @@ export default async function StorefrontBrandingPage() {
       </div>
 
       <div className="rounded-xl border border-border/80 bg-white/70 shadow-sm shadow-black/[0.02] backdrop-blur-sm p-6">
-        <BrandingEditor tenant={context.activeTenant} />
+        <BrandingEditor
+          tenant={context.activeTenant}
+          storageUsedBytes={resourceUsage.storage_used_bytes}
+          storageLimitBytes={resourceUsage.storage_limit_bytes}
+        />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAdmin } from '@/lib/auth/tenant';
 import { getStoreAssetSignedUrl } from '@/lib/storage';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function GET(
   req: NextRequest,
@@ -24,10 +25,9 @@ export async function GET(
 
     return NextResponse.json({ signed_url: signedUrl });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Logo URL resolve error:', error);
-    if (error instanceof Error && error.message === 'Tenant admin access required') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
     return NextResponse.json({ error: 'Failed to resolve logo URL' }, { status: 500 });
   }
 }

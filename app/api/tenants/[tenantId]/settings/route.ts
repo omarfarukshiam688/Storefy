@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAdmin } from '@/lib/auth/tenant';
 import { updateTenantSettings } from '@/lib/tenants';
 import { updateTenantSettingsSchema } from '@/lib/validation/tenant';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function PATCH(
   req: NextRequest,
@@ -34,6 +35,9 @@ export async function PATCH(
       { status: 200 }
     );
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
+
     console.error('Tenant settings update error:', error);
 
     if (

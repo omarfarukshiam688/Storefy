@@ -9,6 +9,12 @@ export interface TenantContext {
   role: "tenant_admin" | "tenant_staff" | null;
 }
 
+export function assertTenantActive(tenant: { is_active: boolean } | null | undefined): void {
+  if (!tenant || tenant.is_active === false) {
+    throw new ForbiddenError("This tenant is suspended");
+  }
+}
+
 export async function getTenantContext(): Promise<TenantContext> {
   const supabase = await createClient();
 
@@ -117,6 +123,8 @@ export async function getTenantContext(): Promise<TenantContext> {
       };
     }
 
+    assertTenantActive(fallbackTenantData);
+
     return {
       profile,
       activeTenant: fallbackTenantData,
@@ -124,6 +132,8 @@ export async function getTenantContext(): Promise<TenantContext> {
       role: fallbackMembershipData.role as "tenant_admin" | "tenant_staff",
     };
   }
+
+  assertTenantActive(tenant);
 
   return {
     profile,
@@ -156,6 +166,18 @@ export async function requireTenantMembership(tenantId: string): Promise<TenantM
   if (membershipError || !membership) {
     throw new ForbiddenError("Not a member of this tenant");
   }
+
+  const { data: tenant, error: tenantError } = await supabase
+    .from("tenants")
+    .select("is_active")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  if (tenantError || !tenant) {
+    throw new ForbiddenError("Tenant not found");
+  }
+
+  assertTenantActive(tenant);
 
   return membership;
 }

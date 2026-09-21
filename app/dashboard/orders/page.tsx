@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { listOrders } from '@/lib/orders';
+import { getTenantResourceUsage } from '@/lib/plans/usage';
 import { OrdersPageClient } from '@/components/admin/orders-page-client';
 import type { OrderStatus, PaymentStatus } from '@/types';
 
@@ -28,12 +29,16 @@ export default async function OrdersPage({
     page_size: typeof resolvedParams.page_size === 'string' ? parseInt(resolvedParams.page_size) : undefined,
   });
 
+  const resourceUsage = await getTenantResourceUsage(tenant.id);
+
   return (
     <OrdersPageClient
       initialOrders={ordersResult.orders}
       initialTotal={ordersResult.total}
       initialPage={ordersResult.page}
       initialTotalPages={ordersResult.total_pages}
+      orderUsed={resourceUsage.order_used}
+      orderLimit={resourceUsage.order_limit}
     />
   );
 }

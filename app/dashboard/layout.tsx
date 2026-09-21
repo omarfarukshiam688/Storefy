@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getTenantContext } from '@/lib/auth/tenant';
+import { ForbiddenError } from '@/lib/auth/errors';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 
 export default async function DashboardLayout({
@@ -19,7 +20,15 @@ export default async function DashboardLayout({
     redirect('/verify-email');
   }
 
-  const context = await getTenantContext();
+  let context;
+  try {
+    context = await getTenantContext();
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      redirect('/login');
+    }
+    throw error;
+  }
 
   return (
     <DashboardShell

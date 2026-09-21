@@ -3,6 +3,7 @@ import { getTenantContext } from '@/lib/auth/tenant';
 import { getOrder, updateOrderStatus, updatePaymentStatus, cancelOrder } from '@/lib/orders';
 import { updateOrderStatusSchema, updatePaymentStatusSchema } from '@/lib/validation/order';
 import { z } from 'zod';
+import { handleAuthError } from '@/lib/auth/errors';
 
 const cancelSchema = z.object({ action: z.literal('cancel') });
 
@@ -20,6 +21,8 @@ export async function GET(
     const order = await getOrder(context.activeTenant.id, id);
     return NextResponse.json(order);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Order detail error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Order not found' },
@@ -61,6 +64,8 @@ export async function PATCH(
 
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Order update error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to update order' },

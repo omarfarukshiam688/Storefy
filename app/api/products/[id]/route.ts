@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { getProduct, updateProduct, archiveProduct, restoreProduct, deleteProduct } from '@/lib/products';
 import { updateProductSchema } from '@/lib/validation/product';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function GET(
   _req: NextRequest,
@@ -17,10 +18,9 @@ export async function GET(
     const product = await getProduct(context.activeTenant.id, id);
     return NextResponse.json(product);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Product fetch error:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     if (error instanceof Error && error.message === 'Product not found') {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
@@ -62,10 +62,9 @@ export async function PATCH(
     const product = await updateProduct(context.activeTenant.id, id, validated.data);
     return NextResponse.json(product);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Product update error:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     if (error instanceof Error && (error.message === 'Product not found')) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
@@ -93,10 +92,9 @@ export async function DELETE(
     await deleteProduct(context.activeTenant.id, id);
     return NextResponse.json({ success: true });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Product delete error:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     if (error instanceof Error && error.message === 'Product not found') {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }

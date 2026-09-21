@@ -8,6 +8,7 @@ import { ProductTable } from '@/components/admin/product-table';
 import { ProductFilters } from '@/components/admin/product-filters';
 import { ProductOverviewDrawer } from '@/components/admin/product-overview-drawer';
 import { CategoryManager } from '@/components/admin/category-manager';
+import { CompactResourceUsage } from '@/components/admin/compact-resource-usage';
 import Link from 'next/link';
 import { Plus, Package, Sparkles, Archive } from 'lucide-react';
 import type { Product, Category } from '@/types';
@@ -26,6 +27,8 @@ interface ProductsPageClientProps {
   primaryImages: Record<string, string | null>;
   categoryMap: Record<string, string>;
   mode: PageMode;
+  productUsed?: number;
+  productLimit?: number;
 }
 
 export function ProductsPageClient({
@@ -39,6 +42,8 @@ export function ProductsPageClient({
   primaryImages,
   categoryMap,
   mode,
+  productUsed,
+  productLimit,
 }: ProductsPageClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -160,6 +165,16 @@ export function ProductsPageClient({
           <p className="mt-1 text-sm text-slate-600">
             {total} {total === 1 ? 'product' : 'products'} {isArchived ? 'archived' : 'in your catalog'}
           </p>
+          {!isArchived && productUsed !== undefined && productLimit !== undefined && (
+            <div className="mt-3">
+              <CompactResourceUsage
+                title="Products"
+                icon={Package}
+                used={productUsed}
+                limit={productLimit}
+              />
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {!isArchived && (
@@ -178,10 +193,13 @@ export function ProductsPageClient({
             <Button
               asChild
               className="h-11 bg-violet-600 shadow-[0_10px_24px_-12px_rgba(124,58,237,0.8)] hover:bg-violet-700"
+              disabled={productUsed !== undefined && productLimit !== undefined && productLimit !== -1 && productUsed >= productLimit}
             >
               <Link href="/dashboard/products/new">
                 <Plus className="h-4 w-4 mr-2" />
-                Add product
+                {productUsed !== undefined && productLimit !== undefined && productLimit !== -1 && productUsed >= productLimit
+                  ? 'Limit reached'
+                  : 'Add product'}
               </Link>
             </Button>
           )}

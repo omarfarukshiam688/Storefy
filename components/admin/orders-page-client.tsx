@@ -5,7 +5,8 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { OrderTable } from '@/components/admin/order-table';
 import { OrderFilters } from '@/components/admin/order-filters';
-import { Sparkles } from 'lucide-react';
+import { CompactResourceUsage } from '@/components/admin/compact-resource-usage';
+import { Sparkles, ShoppingCart } from 'lucide-react';
 import type { Order } from '@/types';
 import { OrderViewDrawer } from '@/components/admin/order-view-drawer';
 
@@ -14,6 +15,8 @@ interface OrdersPageClientProps {
   initialTotal: number;
   initialPage: number;
   initialTotalPages: number;
+  orderUsed?: number;
+  orderLimit?: number;
 }
 
 export function OrdersPageClient({
@@ -21,6 +24,8 @@ export function OrdersPageClient({
   initialTotal,
   initialPage,
   initialTotalPages,
+  orderUsed,
+  orderLimit,
 }: OrdersPageClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,6 +60,16 @@ export function OrdersPageClient({
           <p className="mt-1 text-sm text-slate-600">
             {initialTotal} {initialTotal === 1 ? 'order' : 'orders'} total
           </p>
+          {orderUsed !== undefined && orderLimit !== undefined && (
+            <div className="mt-3">
+              <CompactResourceUsage
+                title="Orders"
+                icon={ShoppingCart}
+                used={orderUsed}
+                limit={orderLimit}
+              />
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAdmin } from '@/lib/auth/tenant';
-import { uploadStoreAssetFile, deleteStoreAssetFile, buildStoreAssetPath, detectImageType, getStoreAssetSignedUrl } from '@/lib/storage';
+import { uploadStoreAssetFile, deleteStoreAssetFile, buildStoreAssetPath, detectImageType, getStoreAssetSignedUrl, assertStorageQuota, createStoreAssetRecord, deleteStoreAssetRecord, replaceStoreAssetIfExists, sanitizeOriginalFilename } from '@/lib/storage';
 import { createServiceClient } from '@/lib/supabase/admin';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function POST(
   req: NextRequest,
@@ -35,9 +36,29 @@ export async function POST(
     const imageId = crypto.randomUUID();
     const storagePath = buildStoreAssetPath(tenantId, imageId, detected.extension);
 
+    await replaceStoreAssetIfExists(tenantId, 'logo');
+
+    await assertStorageQuota(tenantId, file.size);
+
     const uploadResult = await uploadStoreAssetFile(file, storagePath, detected.mimeType);
     if (uploadResult.error) {
       return NextResponse.json({ error: `Upload failed: ${uploadResult.error.message}` }, { status: 500 });
+    }
+
+    try {
+      await createStoreAssetRecord(tenantId, {
+        storage_path: storagePath,
+        asset_type: 'logo',
+        file_size: file.size,
+        mime_type: detected.mimeType,
+        original_filename: sanitizeOriginalFilename(file.name),
+      });
+    } catch (recordError) {
+      await deleteStoreAssetFile(storagePath);
+      return NextResponse.json(
+        { error: recordError instanceof Error ? recordError.message : 'Failed to save asset metadata' },
+        { status: 500 }
+      );
     }
 
     const supabase = createServiceClient();
@@ -71,10 +92,9 @@ export async function POST(
       signed_url: signedUrl,
     });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Logo upload error:', error);
-    if (error instanceof Error && error.message === 'Tenant admin access required') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
     return NextResponse.json({ error: 'Failed to upload logo' }, { status: 500 });
   }
 }
@@ -98,6 +118,8 @@ export async function DELETE(
     if (deleteError) {
       console.error('Storage delete error:', deleteError);
     }
+
+    await deleteStoreAssetRecord(tenantId, imagePath);
 
     const supabase = createServiceClient();
     const { data: currentTenant, error: fetchError } = await supabase
@@ -124,10 +146,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Logo delete error:', error);
-    if (error instanceof Error && error.message === 'Tenant admin access required') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
     return NextResponse.json({ error: 'Failed to delete logo' }, { status: 500 });
   }
 }

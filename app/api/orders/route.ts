@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { listOrders } from '@/lib/orders';
 import type { OrderStatus, PaymentStatus } from '@/types';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export interface OrderListFilters {
   search?: string;
@@ -34,6 +35,8 @@ export async function GET(req: NextRequest) {
     const result = await listOrders(context.activeTenant.id, filters);
     return NextResponse.json(result);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Orders list error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch orders' },

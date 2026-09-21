@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { cancelInvitation } from '@/lib/team';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function DELETE(
   req: NextRequest,
@@ -21,6 +22,8 @@ export async function DELETE(
     await cancelInvitation(context.activeTenant.id, id);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Cancel invitation error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to cancel invitation' },

@@ -249,6 +249,131 @@ export async function getHeroImageSignedUrl(
   return getStoreAssetSignedUrl(storagePath, expiresIn);
 }
 
+export async function assertStorageQuota(tenantId: string, incomingFileSize: number): Promise<void> {
+  const supabase = createServiceClient();
+
+  const { data: tenant, error: tenantError } = await supabase
+    .from('tenants')
+    .select('plan_id')
+    .eq('id', tenantId)
+    .single();
+
+  if (tenantError || !tenant) {
+    throw new Error(tenantError?.message ?? 'Tenant not found');
+  }
+
+  const { data: plan, error: planError } = await supabase
+    .from('plans')
+    .select('storage_limit_bytes')
+    .eq('id', tenant.plan_id)
+    .single();
+
+  if (planError || !plan) {
+    throw new Error(planError?.message ?? 'Plan not found');
+  }
+
+  if (plan.storage_limit_bytes === -1) {
+    return;
+  }
+
+  const { data: imageRows, error: imageError } = await supabase
+    .from('product_images')
+    .select('file_size')
+    .eq('tenant_id', tenantId);
+
+  let productImageBytes = 0;
+  if (!imageError && imageRows) {
+    for (const row of imageRows) {
+      productImageBytes += row.file_size;
+    }
+  }
+
+  let storeAssetBytes = 0;
+  const { data: storeAssetRows, error: storeError } = await supabase
+    .from('store_assets')
+    .select('file_size')
+    .eq('tenant_id', tenantId);
+
+  if (!storeError && storeAssetRows) {
+    for (const row of storeAssetRows) {
+      storeAssetBytes += row.file_size;
+    }
+  }
+
+  const currentUsage = productImageBytes + storeAssetBytes;
+
+  if (currentUsage + incomingFileSize > plan.storage_limit_bytes) {
+    throw new Error(
+      `Storage limit reached: your current plan allows up to ${plan.storage_limit_bytes} bytes. ` +
+      `Current usage: ${currentUsage} bytes. ` +
+      `File size: ${incomingFileSize} bytes.`
+    );
+  }
+}
+
+export async function createStoreAssetRecord(tenantId: string, input: {
+  storage_path: string;
+  asset_type: 'logo' | 'hero' | 'about' | 'favicon';
+  file_size: number;
+  mime_type: string;
+  original_filename: string;
+}): Promise<{ id: string }> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from('store_assets')
+    .insert({
+      tenant_id: tenantId,
+      storage_path: input.storage_path,
+      asset_type: input.asset_type,
+      file_size: input.file_size,
+      mime_type: input.mime_type,
+      original_filename: input.original_filename,
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? 'Failed to create store asset record');
+  }
+
+  return { id: data.id };
+}
+
+export async function replaceStoreAssetIfExists(
+  tenantId: string,
+  assetType: 'logo' | 'hero' | 'about' | 'favicon'
+): Promise<{ storagePath: string | null }> {
+  const supabase = createServiceClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from('store_assets')
+    .select('storage_path')
+    .eq('tenant_id', tenantId)
+    .eq('asset_type', assetType)
+    .maybeSingle();
+
+  if (fetchError || !existing) {
+    return { storagePath: null };
+  }
+
+  await deleteStoreAssetFile(existing.storage_path);
+  await deleteStoreAssetRecord(tenantId, existing.storage_path);
+
+  return { storagePath: existing.storage_path };
+}
+
+export async function deleteStoreAssetRecord(tenantId: string, storagePath: string): Promise<void> {
+  const supabase = createServiceClient();
+  const { error } = await supabase
+    .from('store_assets')
+    .delete()
+    .eq('tenant_id', tenantId)
+    .eq('storage_path', storagePath);
+
+  if (error) {
+    throw new Error(`Failed to delete store asset record: ${error.message}`);
+  }
+}
+
 export async function getAboutImageSignedUrl(
   storagePath: string,
   expiresIn = 3600

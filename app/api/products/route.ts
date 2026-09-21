@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { listProducts, createProduct } from '@/lib/products';
 import { createProductSchema } from '@/lib/validation/product';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,10 +26,9 @@ export async function GET(req: NextRequest) {
     const result = await listProducts(context.activeTenant.id, filters);
     return NextResponse.json(result);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Products list error:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
   }
 }
@@ -53,10 +53,9 @@ export async function POST(req: NextRequest) {
     const product = await createProduct(context.activeTenant.id, validated.data);
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Product creation error:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to create product' }, { status: 500 });
   }
 }

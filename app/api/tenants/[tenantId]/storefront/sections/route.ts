@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAdmin } from '@/lib/auth/tenant';
 import { listStorefrontSections, updateStorefrontSection, reorderStorefrontSections, ensureDefaultSections } from '@/lib/storefront/config';
 import type { StorefrontSectionKey } from '@/types';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function GET(
   req: NextRequest,
@@ -17,10 +18,9 @@ export async function GET(
 
     return NextResponse.json({ sections });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Storefront sections fetch error:', error);
-    if (error instanceof Error && error.message === 'Tenant admin access required') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
     return NextResponse.json({ error: 'Failed to fetch storefront sections' }, { status: 500 });
   }
 }
@@ -36,7 +36,6 @@ export async function PATCH(
     const body = await req.json();
 
     if (body.sections && Array.isArray(body.sections)) {
-      // Bulk update: reorder + update each section
       const sectionKeys: StorefrontSectionKey[] = [];
       for (const item of body.sections) {
         const { section_key, is_enabled, config, display_order } = item as {
@@ -65,7 +64,6 @@ export async function PATCH(
         await updateStorefrontSection(tenantId, section_key, updates);
       }
 
-      // Reorder to match the array order
       await reorderStorefrontSections(tenantId, sectionKeys);
 
       const sections = await listStorefrontSections(tenantId);
@@ -82,10 +80,9 @@ export async function PATCH(
 
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Storefront sections update error:', error);
-    if (error instanceof Error && error.message === 'Tenant admin access required') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
     return NextResponse.json({ error: 'Failed to update storefront sections' }, { status: 500 });
   }
 }

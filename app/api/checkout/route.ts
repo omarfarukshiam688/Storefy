@@ -25,6 +25,36 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient();
 
+    const { data: plan, error: planError } = await supabase
+      .from('plans')
+      .select('order_limit')
+      .eq('id', tenant.plan_id)
+      .single();
+
+    if (planError || !plan) {
+      return NextResponse.json({ error: 'Failed to resolve plan' }, { status: 500 });
+    }
+
+    if (plan.order_limit !== -1) {
+      const { count, error: countError } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenant.id);
+
+      if (countError) {
+        return NextResponse.json({ error: 'Failed to check order limit' }, { status: 500 });
+      }
+
+      if ((count ?? 0) >= plan.order_limit) {
+        return NextResponse.json(
+          {
+            error: `Order limit reached: your current plan allows up to ${plan.order_limit} orders.`,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     const productIds = items.map((i) => i.productId);
     const { data: products, error: productsError } = await supabase
       .from('products')

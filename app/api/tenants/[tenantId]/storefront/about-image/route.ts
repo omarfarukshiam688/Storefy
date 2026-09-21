@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAdmin } from '@/lib/auth/tenant';
-import { uploadStoreAssetFile, deleteStoreAssetFile, detectImageType, buildStorefrontAboutImagePath, getAboutImageSignedUrl } from '@/lib/storage';
+import { uploadStoreAssetFile, deleteStoreAssetFile, detectImageType, buildStorefrontAboutImagePath, getAboutImageSignedUrl, assertStorageQuota, createStoreAssetRecord, deleteStoreAssetRecord, replaceStoreAssetIfExists, sanitizeOriginalFilename } from '@/lib/storage';
 import { updateStorefrontSection } from '@/lib/storefront/config';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function POST(
   req: NextRequest,
@@ -35,9 +36,29 @@ export async function POST(
     const imageId = crypto.randomUUID();
     const storagePath = buildStorefrontAboutImagePath(tenantId, imageId, detected.extension);
 
+    await replaceStoreAssetIfExists(tenantId, 'about');
+
+    await assertStorageQuota(tenantId, file.size);
+
     const uploadResult = await uploadStoreAssetFile(file, storagePath, detected.mimeType);
     if (uploadResult.error) {
       return NextResponse.json({ error: `Upload failed: ${uploadResult.error.message}` }, { status: 500 });
+    }
+
+    try {
+      await createStoreAssetRecord(tenantId, {
+        storage_path: storagePath,
+        asset_type: 'about',
+        file_size: file.size,
+        mime_type: detected.mimeType,
+        original_filename: sanitizeOriginalFilename(file.name),
+      });
+    } catch (recordError) {
+      await deleteStoreAssetFile(storagePath);
+      return NextResponse.json(
+        { error: recordError instanceof Error ? recordError.message : 'Failed to save asset metadata' },
+        { status: 500 }
+      );
     }
 
     const section = await updateStorefrontSection(tenantId, 'about_us', {
@@ -53,10 +74,9 @@ export async function POST(
       section,
     });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('About image upload error:', error);
-    if (error instanceof Error && error.message === 'Tenant admin access required') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
     return NextResponse.json({ error: 'Failed to upload about image' }, { status: 500 });
   }
 }
@@ -81,16 +101,17 @@ export async function DELETE(
       console.error('Storage delete error:', deleteError);
     }
 
+    await deleteStoreAssetRecord(tenantId, imagePath);
+
     const section = await updateStorefrontSection(tenantId, 'about_us', {
       config: { image_path: null },
     });
 
     return NextResponse.json({ success: true, section });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('About image delete error:', error);
-    if (error instanceof Error && error.message === 'Tenant admin access required') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
     return NextResponse.json({ error: 'Failed to delete about image' }, { status: 500 });
   }
 }

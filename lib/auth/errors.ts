@@ -1,3 +1,5 @@
+import { NextResponse } from "next/server";
+
 export class AuthError extends Error {
   constructor(message: string, public statusCode = 401) {
     super(message);
@@ -24,4 +26,11 @@ export class EmailNotVerifiedError extends AuthError {
     super(message, 403);
     this.name = "EmailNotVerifiedError";
   }
+}
+
+export function handleAuthError(error: unknown): NextResponse | null {
+  if (error instanceof AuthError) {
+    return NextResponse.json({ error: error.message }, { status: error.statusCode });
+  }
+  return null;
 }

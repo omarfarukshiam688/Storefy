@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { getCategory, updateCategory, deleteCategory } from '@/lib/products';
 import { updateCategorySchema } from '@/lib/validation/product';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function GET(
   _req: NextRequest,
@@ -17,10 +18,9 @@ export async function GET(
     const category = await getCategory(context.activeTenant.id, id);
     return NextResponse.json(category);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Category fetch error:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     if (error instanceof Error && error.message === 'Category not found') {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
@@ -52,10 +52,9 @@ export async function PATCH(
     const category = await updateCategory(context.activeTenant.id, id, validated.data);
     return NextResponse.json(category);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Category update error:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     if (error instanceof Error && error.message === 'Category not found') {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
@@ -77,10 +76,9 @@ export async function DELETE(
     await deleteCategory(context.activeTenant.id, id);
     return NextResponse.json({ success: true });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Category delete error:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to delete category' }, { status: 500 });
   }
 }

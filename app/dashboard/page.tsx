@@ -2,8 +2,10 @@ import { redirect } from 'next/navigation';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { getDashboardStats, getRecentOrders } from '@/lib/dashboard';
+import { getTenantResourceUsage, formatBytes } from '@/lib/plans/usage';
 import { DashboardMetricCard } from '@/components/admin/dashboard-metric-card';
 import { DashboardRecentOrders } from '@/components/admin/dashboard-recent-orders';
+import { ResourceUsageCard } from '@/components/admin/resource-usage-card';
 import {
   ShoppingCart,
   Clock,
@@ -12,6 +14,7 @@ import {
   Package,
   TrendingUp,
   Sparkles,
+  HardDrive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,9 +31,10 @@ export default async function DashboardPage() {
   const displayName = context.profile.name ?? 'User';
   const storeName = context.activeTenant.name;
 
-  const [stats, recentOrders] = await Promise.all([
+  const [stats, recentOrders, resourceUsage] = await Promise.all([
     getDashboardStats(tenantId),
     getRecentOrders(tenantId, 5),
+    getTenantResourceUsage(tenantId),
   ]);
 
   const averageOrderValue =
@@ -116,6 +120,28 @@ export default async function DashboardPage() {
           title="Active Products"
           value={stats.activeProducts}
           icon={Package}
+        />
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ResourceUsageCard
+          title="Products"
+          icon={Package}
+          used={resourceUsage.product_used}
+          limit={resourceUsage.product_limit}
+        />
+        <ResourceUsageCard
+          title="Orders"
+          icon={ShoppingCart}
+          used={resourceUsage.order_used}
+          limit={resourceUsage.order_limit}
+        />
+        <ResourceUsageCard
+          title="Storage"
+          icon={HardDrive}
+          used={resourceUsage.storage_used_bytes}
+          limit={resourceUsage.storage_limit_bytes}
+          format={formatBytes}
         />
       </section>
 

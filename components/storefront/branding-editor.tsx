@@ -6,10 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import type { Tenant } from '@/types';
-import { Upload, X, Loader2 } from 'lucide-react';
+import { Upload, X, Loader2, HardDrive } from 'lucide-react';
+import { CompactResourceUsage } from '@/components/admin/compact-resource-usage';
 
 interface BrandingEditorProps {
   tenant: Tenant;
+  storageUsedBytes?: number;
+  storageLimitBytes?: number;
 }
 
 const PRESET_COLORS = [
@@ -23,7 +26,7 @@ const PRESET_COLORS = [
   '#0F7490',
 ];
 
-export function BrandingEditor({ tenant }: BrandingEditorProps) {
+export function BrandingEditor({ tenant, storageUsedBytes, storageLimitBytes }: BrandingEditorProps) {
   const settings = tenant.settings as Record<string, unknown> | null;
   const [primaryColor, setPrimaryColor] = React.useState(
     (settings?.primary_color as string) || '#111111'
@@ -299,6 +302,15 @@ export function BrandingEditor({ tenant }: BrandingEditorProps) {
 
   return (
     <div className="space-y-6">
+      {storageUsedBytes !== undefined && storageLimitBytes !== undefined && (
+        <CompactResourceUsage
+          title="Storage"
+          icon={HardDrive}
+          used={storageUsedBytes}
+          limit={storageLimitBytes}
+          className="w-full sm:w-auto"
+        />
+      )}
       <div>
         <h3 className="text-base font-semibold">Brand Color</h3>
         <p className="text-sm text-muted-foreground">

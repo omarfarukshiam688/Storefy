@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { getTenantMembers } from '@/lib/team';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function GET() {
   try {
@@ -16,6 +17,8 @@ export async function GET() {
     const members = await getTenantMembers(context.activeTenant.id);
     return NextResponse.json(members);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Team members error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch team members' },

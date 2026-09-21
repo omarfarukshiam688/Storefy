@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { getPendingInvitations, createInvitation } from '@/lib/team';
 import { createInvitationSchema } from '@/lib/validation/team';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function GET() {
   try {
@@ -17,6 +18,8 @@ export async function GET() {
     const invitations = await getPendingInvitations(context.activeTenant.id);
     return NextResponse.json(invitations);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Pending invitations error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch invitations' },
@@ -58,6 +61,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(invitation, { status: 201 });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Create invitation error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create invitation' },

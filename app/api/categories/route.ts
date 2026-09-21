@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { listCategories, createCategory } from '@/lib/products';
 import { createCategorySchema } from '@/lib/validation/product';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function GET() {
   try {
@@ -13,10 +14,9 @@ export async function GET() {
     const categories = await listCategories(context.activeTenant.id);
     return NextResponse.json(categories);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Categories list error:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 });
   }
 }
@@ -41,10 +41,9 @@ export async function POST(req: NextRequest) {
     const category = await createCategory(context.activeTenant.id, validated.data);
     return NextResponse.json(category, { status: 201 });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Category creation error:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to create category' }, { status: 500 });
   }
 }

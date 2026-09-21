@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAdmin } from '@/lib/auth/tenant';
 import { updateTenantIdentity, isSlugAvailable } from '@/lib/tenants';
 import { updateTenantSlugSchema } from '@/lib/validation/tenant';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function PATCH(
   req: NextRequest,
@@ -43,6 +44,9 @@ export async function PATCH(
       { status: 200 }
     );
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
+
     console.error('Tenant slug update error:', error);
 
     if (

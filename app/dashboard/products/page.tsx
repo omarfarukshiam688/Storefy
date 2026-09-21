@@ -3,6 +3,7 @@ import { getTenantContext } from '@/lib/auth/tenant';
 import { listProducts, listCategories } from '@/lib/products';
 import { createClient } from '@/lib/supabase/server';
 import { getProductImagesSignedUrls } from '@/lib/storage';
+import { getTenantResourceUsage } from '@/lib/plans/usage';
 import { ProductsPageClient } from '@/components/admin/products-page-client';
 
 export default async function ProductsPage({
@@ -64,6 +65,8 @@ export default async function ProductsPage({
     return acc;
   }, {});
 
+  const resourceUsage = await getTenantResourceUsage(tenant.id);
+
   return (
     <ProductsPageClient
       initialProducts={productsResult.products}
@@ -76,6 +79,8 @@ export default async function ProductsPage({
       primaryImages={primaryImages}
       categoryMap={categoryMap}
       mode="active"
+      productUsed={resourceUsage.product_used}
+      productLimit={resourceUsage.product_limit}
     />
   );
 }

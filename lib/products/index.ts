@@ -157,6 +157,46 @@ export async function getProduct(tenantId: string, productId: string): Promise<P
 
 export async function createProduct(tenantId: string, input: CreateProductInput): Promise<Product> {
   const supabase = await createClient();
+
+  const { data: tenant, error: tenantError } = await supabase
+    .from('tenants')
+    .select('plan_id')
+    .eq('id', tenantId)
+    .single();
+
+  if (tenantError || !tenant) {
+    throw new Error(tenantError?.message ?? 'Tenant not found');
+  }
+
+  const { data: plan, error: planError } = await supabase
+    .from('plans')
+    .select('product_limit')
+    .eq('id', tenant.plan_id)
+    .single();
+
+  if (planError || !plan) {
+    throw new Error(planError?.message ?? 'Plan not found');
+  }
+
+  if (plan.product_limit !== -1) {
+    const { count, error: countError } = await supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .eq('is_archived', false);
+
+    if (countError) {
+      throw new Error(`Failed to check product limit: ${countError.message}`);
+    }
+
+    if ((count ?? 0) >= plan.product_limit) {
+      throw new Error(
+        `Product limit reached: your current plan allows up to ${plan.product_limit} products.`
+      );
+    }
+  }
+
   await assertCategoryOwnedByTenant(tenantId, input.category_id);
 
   const payload = {

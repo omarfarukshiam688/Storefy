@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { updateMemberRole, removeMember } from '@/lib/team';
 import { updateMemberRoleSchema } from '@/lib/validation/team';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function PATCH(
   req: NextRequest,
@@ -40,6 +41,8 @@ export async function PATCH(
 
     return NextResponse.json(member);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Update member role error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to update member role' },
@@ -67,6 +70,8 @@ export async function DELETE(
     await removeMember(context.activeTenant.id, id, context.profile.id);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Remove member error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to remove member' },

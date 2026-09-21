@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { getProduct } from '@/lib/products';
 import { listProductImages, createProductImageRecord } from '@/lib/products/images';
-import { uploadProductImageFile, detectImageType, sanitizeOriginalFilename, buildProductImagePath, getProductImagesSignedUrls } from '@/lib/storage';
+import type { ProductImage } from '@/types';
+import { uploadProductImageFile, detectImageType, sanitizeOriginalFilename, buildProductImagePath, getProductImagesSignedUrls, assertStorageQuota, deleteProductImageFile } from '@/lib/storage';
 
 export async function GET(req: NextRequest) {
   try {
@@ -88,6 +89,9 @@ export async function POST(req: NextRequest) {
       detected.extension
     );
 
+    // Check storage quota before upload
+    await assertStorageQuota(context.activeTenant.id, file.size);
+
     // Upload to storage
     const uploadResult = await uploadProductImageFile(file, storagePath, detected.mimeType);
     if (uploadResult.error) {
@@ -96,17 +100,26 @@ export async function POST(req: NextRequest) {
 
     // Create database record
     const displayOrder = images.length; // append at end
-    const imageRecord = await createProductImageRecord(context.activeTenant.id, productId, {
-      storage_path: storagePath,
-      display_order: displayOrder,
-      alt_text: altText,
-      mime_type: detected.mimeType,
-      file_size: file.size,
-      width: detected.width,
-      height: detected.height,
-      original_filename: sanitizeOriginalFilename(file.name),
-      is_primary: images.length === 0, // first image becomes primary
-    });
+    let imageRecord: ProductImage;
+    try {
+      imageRecord = await createProductImageRecord(context.activeTenant.id, productId, {
+        storage_path: storagePath,
+        display_order: displayOrder,
+        alt_text: altText,
+        mime_type: detected.mimeType,
+        file_size: file.size,
+        width: detected.width,
+        height: detected.height,
+        original_filename: sanitizeOriginalFilename(file.name),
+        is_primary: images.length === 0, // first image becomes primary
+      });
+    } catch (recordError) {
+      await deleteProductImageFile(storagePath);
+      return NextResponse.json(
+        { error: recordError instanceof Error ? recordError.message : 'Failed to save image metadata' },
+        { status: 500 }
+      );
+    }
 
     // Generate signed URL for response
     const signedUrl = await getProductImagesSignedUrls([imageRecord], 3600, { width: 800, quality: 80 });
