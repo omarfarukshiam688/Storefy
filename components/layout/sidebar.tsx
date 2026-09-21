@@ -16,6 +16,7 @@ import {
   Users,
   UserPlus,
   MessageSquare,
+  TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ const navItems = [
   { href: '/dashboard/products', label: 'Products', icon: Package },
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/customers', label: 'Customers', icon: Users },
+  { href: '/dashboard/analytics', label: 'Analytics', icon: TrendingUp },
   { href: '/dashboard/storefront', label: 'Storefront', icon: LayoutGrid },
 ];
 

@@ -11,6 +11,7 @@ import { CategoryManager } from '@/components/admin/category-manager';
 import Link from 'next/link';
 import { Plus, Package, Sparkles, Archive } from 'lucide-react';
 import type { Product, Category } from '@/types';
+import { CollapsibleSection } from '@/components/ui/collapsible-section';
 
 type PageMode = 'active' | 'archived';
 
@@ -187,7 +188,12 @@ export function ProductsPageClient({
         </div>
       </div>
 
-      <CategoryManager categories={categories} />
+      <CollapsibleSection
+        title="Categories"
+        description="Organize your products into categories."
+      >
+        <CategoryManager categories={categories} />
+      </CollapsibleSection>
 
       <div className="rounded-[24px] border border-violet-100 bg-white/75 p-4 shadow-[0_16px_40px_-30px_rgba(76,29,149,0.4)] sm:p-5">
         <ProductFilters categories={categories} />
