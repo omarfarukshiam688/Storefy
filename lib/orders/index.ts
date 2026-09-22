@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { Order, OrderItem, OrderStatus, PaymentStatus } from '@/types';
 import { emitOrderEvent } from './events';
 import type { OrderEventType } from './events';
+import { sendNotification } from '@/lib/notifications';
 
 export interface OrderFilters {
   search?: string;
@@ -254,6 +255,20 @@ export async function updateOrderStatus(
     timestamp: new Date().toISOString(),
   });
 
+  if (order.customer_email) {
+    sendNotification({
+      type: 'order.status_changed',
+      tenantId,
+      recipientEmail: order.customer_email,
+      data: {
+        orderNumber: order.order_number,
+        customerName: order.customer_name,
+        previousStatus: currentStatus,
+        nextStatus,
+      },
+    }).catch(() => {});
+  }
+
   return order as Order;
 }
 
@@ -263,6 +278,23 @@ export async function updatePaymentStatus(
   paymentStatus: PaymentStatus
 ): Promise<Order> {
   const supabase = await createClient();
+
+  const { data: currentOrder, error: fetchError } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('id', orderId)
+    .single();
+
+  if (fetchError || !currentOrder) {
+    throw new Error(fetchError?.message ?? 'Order not found');
+  }
+
+  const previousPaymentStatus = currentOrder.payment_status as PaymentStatus;
+
+  if (previousPaymentStatus === paymentStatus) {
+    return normalizeOrder(currentOrder);
+  }
 
   const { data: order, error } = await supabase
     .from('orders')
@@ -283,6 +315,20 @@ export async function updatePaymentStatus(
     nextStatus: paymentStatus,
     timestamp: new Date().toISOString(),
   });
+
+  if (currentOrder.customer_email) {
+    sendNotification({
+      type: 'payment.status_changed',
+      tenantId,
+      recipientEmail: currentOrder.customer_email,
+      data: {
+        orderNumber: currentOrder.order_number,
+        customerName: currentOrder.customer_name,
+        previousStatus: previousPaymentStatus,
+        nextStatus: paymentStatus,
+      },
+    }).catch(() => {});
+  }
 
   return order as Order;
 }

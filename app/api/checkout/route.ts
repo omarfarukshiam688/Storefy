@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/admin';
 import { getTenantBySlug } from '@/lib/storefront';
 import { checkoutRequestSchema } from '@/lib/validation/checkout';
 import { upsertCustomerFromOrder } from '@/lib/customers';
+import { sendNotification } from '@/lib/notifications';
 
 export async function POST(req: NextRequest) {
   try {
@@ -175,6 +176,30 @@ export async function POST(req: NextRequest) {
     if (itemsError) {
       console.error('Order items creation error:', itemsError);
       return NextResponse.json({ error: 'Failed to create order items' }, { status: 500 });
+    }
+
+    if (order.customer_email) {
+      sendNotification({
+        type: 'order.created',
+        tenantId: tenant.id,
+        recipientEmail: order.customer_email,
+        data: {
+          orderNumber: order.order_number,
+          customerName: order.customer_name,
+          items: orderItems.map((item) => ({
+            productName: item.product_name_snapshot,
+            quantity: item.quantity,
+            itemTotal: Number(item.item_total),
+          })),
+          subtotal: Number(subtotal),
+          deliveryCharge: Number(order.delivery_charge),
+          total: Number(subtotal) + Number(order.delivery_charge),
+          district: order.district,
+          deliveryAddress: order.delivery_address,
+          phoneNumber: order.phone_number,
+          storeName: tenant.name,
+        },
+      }).catch(() => {});
     }
 
     return NextResponse.json(

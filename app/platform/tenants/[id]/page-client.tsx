@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ExternalLink, Shield, AlertTriangle, Ban, CheckCircle2, Package, ShoppingCart, Users, HardDrive } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Shield, AlertTriangle, Ban, CheckCircle2, Package, ShoppingCart, Users, HardDrive, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
 import {
   Dialog,
@@ -77,6 +78,8 @@ export function PlatformTenantDetailClient({ tenant }: PlatformTenantDetailClien
   const [showSuspendDialog, setShowSuspendDialog] = React.useState(false);
   const [showReactivateDialog, setShowReactivateDialog] = React.useState(false);
   const [showAssignPlanDialog, setShowAssignPlanDialog] = React.useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = React.useState('');
   const [selectedPlanId, setSelectedPlanId] = React.useState('');
   const [plans, setPlans] = React.useState<Array<{ id: string; name: string }>>([]);
   const [message, setMessage] = React.useState<string | null>(null);
@@ -151,6 +154,29 @@ export function PlatformTenantDetailClient({ tenant }: PlatformTenantDetailClien
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Failed to assign plan');
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (deleteConfirmText !== tenant.name) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/platform/tenants/${tenant.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmedName: tenant.name }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Failed to delete tenant');
+      }
+      setShowDeleteDialog(false);
+      router.push('/platform/tenants');
+      router.refresh();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Failed to delete tenant');
       setLoading(false);
     }
   };
@@ -373,6 +399,26 @@ export function PlatformTenantDetailClient({ tenant }: PlatformTenantDetailClien
             </div>
           </div>
 
+          <div className="rounded-2xl border border-red-200 bg-red-50/50 p-6 shadow-[0_18px_45px_-30px_rgba(76,29,149,0.35)]">
+            <h2 className="text-lg font-bold tracking-tight text-red-900 mb-2">
+              Danger Zone
+            </h2>
+            <p className="text-sm text-red-700 mb-4">
+              Permanently delete <strong>{tenant.name}</strong> and all associated business data. This action cannot be undone.
+            </p>
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={() => {
+                setDeleteConfirmText('');
+                setShowDeleteDialog(true);
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Permanently Delete Tenant
+            </Button>
+          </div>
+
           <div className="rounded-2xl border border-violet-100 bg-white/80 p-6 shadow-[0_18px_45px_-30px_rgba(76,29,149,0.35)]">
             <h2 className="text-lg font-bold tracking-tight text-slate-900 mb-4">
               Plan Details
@@ -402,7 +448,7 @@ export function PlatformTenantDetailClient({ tenant }: PlatformTenantDetailClien
                     Price
                   </p>
                   <p className="mt-1 text-sm font-medium text-slate-900">
-                    ${(tenant.plan.price_monthly / 100).toFixed(2)}/month
+                    {`$${(tenant.plan.price_monthly / 100).toFixed(2)}/month`}
                   </p>
                 </div>
                 <div>
@@ -532,15 +578,53 @@ export function PlatformTenantDetailClient({ tenant }: PlatformTenantDetailClien
             ))}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowAssignPlanDialog(false)}
-              disabled={loading}
-            >
+            <Button variant="outline" onClick={() => setShowAssignPlanDialog(false)} disabled={loading}>
               Cancel
             </Button>
             <Button onClick={handleAssignPlan} loading={loading} disabled={!selectedPlanId}>
               Assign Plan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-900">Permanently Delete Tenant</DialogTitle>
+            <DialogDescription>
+              This will permanently delete <strong>{tenant.name}</strong> and all associated business data including products, orders, customers, reviews, and storage files. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-red-800">This action is permanent</p>
+                <p className="text-xs text-red-700 mt-1">
+                  All tenant data will be permanently removed. Tenant-owned storage files will be deleted. Some tenant users may be removed from authentication if they do not belong to any other tenant.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="delete-confirm" className="text-sm font-medium text-slate-900">
+              To confirm, type <span className="font-mono bg-slate-100 px-1 rounded">{tenant.name}</span> below:
+            </label>
+            <Input
+              id="delete-confirm"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={tenant.name}
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={loading}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} loading={loading} disabled={deleteConfirmText !== tenant.name}>
+              Permanently Delete Tenant
             </Button>
           </DialogFooter>
         </DialogContent>

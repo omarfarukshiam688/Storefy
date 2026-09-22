@@ -3,6 +3,7 @@ import { getTenantContext } from '@/lib/auth/tenant';
 import { getPendingInvitations, createInvitation } from '@/lib/team';
 import { createInvitationSchema } from '@/lib/validation/team';
 import { handleAuthError } from '@/lib/auth/errors';
+import { sendNotification } from '@/lib/notifications';
 
 export async function GET() {
   try {
@@ -58,6 +59,21 @@ export async function POST(req: NextRequest) {
       validated.data.email,
       validated.data.role
     );
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+    const invitationLink = `${siteUrl}/invitation/accept?token=${invitation.token}`;
+
+    sendNotification({
+      type: 'tenant.invitation_created',
+      tenantId: context.activeTenant.id,
+      recipientEmail: invitation.email,
+      data: {
+        tenantName: context.activeTenant.name,
+        invitedBy: context.profile.name ?? 'A team member',
+        role: invitation.role,
+        invitationLink,
+      },
+    }).catch(() => {});
 
     return NextResponse.json(invitation, { status: 201 });
   } catch (error) {
