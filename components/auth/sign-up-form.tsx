@@ -43,7 +43,11 @@ export function SignUpForm() {
     }
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    console.log('[AUTH TRACE] SIGN-UP CALLED', {
+      pathname: window.location.pathname,
+      timestamp: new Date().toISOString(),
+    });
+    const { data, error } = await supabase.auth.signUp({
       email: validated.data.email,
       password: validated.data.password,
       options: {
@@ -52,6 +56,21 @@ export function SignUpForm() {
         },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
+    });
+
+    console.log('[AUTH TRACE] SIGN-UP RESULT', {
+      pathname: window.location.pathname,
+      hasUser: Boolean(data?.user),
+      hasSession: Boolean(data?.session),
+      errorMessage: error?.message,
+      errorStatus: error?.status,
+    });
+
+    console.log('[Auth Debug] signup result', {
+      hasUser: Boolean(data?.user),
+      hasSession: Boolean(data?.session),
+      errorMessage: error?.message,
+      errorStatus: error?.status,
     });
 
     if (error) {

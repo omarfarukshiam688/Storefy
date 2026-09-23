@@ -43,6 +43,10 @@ export function SignInForm() {
     }
 
     const supabase = createClient();
+    console.trace('[AUTH TRACE] SIGN-IN SUBMIT EXECUTED', {
+      pathname: window.location.pathname,
+      timestamp: new Date().toISOString(),
+    });
     const { error } = await supabase.auth.signInWithPassword({
       email: validated.data.email,
       password: validated.data.password,
