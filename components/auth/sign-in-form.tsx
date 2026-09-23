@@ -119,7 +119,7 @@ export function SignInForm() {
             type="button"
             variant="link"
             className="h-auto p-0 text-xs"
-            onClick={() => router.push('/forgot-password')}
+              onClick={() => router.push('/auth/forgot-password')}
           >
             Forgot password?
           </Button>

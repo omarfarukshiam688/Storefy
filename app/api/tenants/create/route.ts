@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createTenantSchema } from '@/lib/validation/tenant';
 import { createTenantForUser, isSlugAvailable } from '@/lib/tenants';
 import { getAuthUser } from '@/lib/auth/session';
+import { sendPlatformTelegram } from '@/lib/notifications/telegram';
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,6 +35,17 @@ export async function POST(req: NextRequest) {
       validated.data.slug,
       validated.data.plan_id
     );
+
+    sendPlatformTelegram({
+      type: 'tenant.created',
+      data: {
+        tenantId: tenant.id,
+        tenantName: tenant.name,
+        tenantSlug: tenant.slug,
+        ownerEmail: user.email,
+        timestamp: new Date().toISOString(),
+      },
+    }).catch(() => {});
 
     return NextResponse.json(
       {

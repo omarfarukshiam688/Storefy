@@ -8,7 +8,8 @@ export const checkoutCustomerSchema = z.object({
   phone: z
     .string()
     .min(1, 'Phone number is required')
-    .max(50, 'Phone number is too long'),
+    .max(11, 'Phone number must be 11 digits (01XXXXXXXXX).')
+    .regex(/^01\d{9}$/, 'Phone number must be 11 digits (01XXXXXXXXX).'),
   email: z
     .string()
     .email('Invalid email address')

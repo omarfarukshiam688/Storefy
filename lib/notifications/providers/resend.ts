@@ -24,7 +24,17 @@ export class ResendEmailProvider implements EmailProvider {
       const result = await response.json();
 
       if (!response.ok || result.error) {
-        const errorMessage = result.error?.message ?? `HTTP ${response.status}`;
+        const errorMessage =
+          result.error?.message ??
+          result.message ??
+          (() => {
+            try {
+              return JSON.stringify(result);
+            } catch {
+              return `HTTP ${response.status}`;
+            }
+          })();
+
         return { success: false, error: errorMessage };
       }
 

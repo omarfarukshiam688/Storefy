@@ -79,6 +79,33 @@ export function SignUpForm() {
       return;
     }
 
+    fetch('/api/platform/telegram/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'user.signup',
+        data: {
+          userId: data.user?.id,
+          email: validated.data.email,
+          name: validated.data.name,
+          timestamp: new Date().toISOString(),
+        },
+      }),
+    })
+      .then(async (res) => {
+        const status = res.status;
+        let parsedBody: unknown = null;
+        try {
+          parsedBody = await res.json();
+        } catch {
+          // ignore JSON parse errors for diagnostic logging
+        }
+        console.log('[Telegram API] Response', { status, body: parsedBody });
+      })
+      .catch((err) => {
+        console.error('[Telegram API] Fetch error', err);
+      });
+
     setSuccess(true);
     toast.success('Account created. Please check your email to verify.');
   }

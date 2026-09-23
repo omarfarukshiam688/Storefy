@@ -46,7 +46,7 @@ export function CollapsibleSection({
           />
         </button>
       </CollapsiblePrimitive.CollapsibleTrigger>
-      <CollapsiblePrimitive.CollapsibleContent forceMount>
+      <CollapsiblePrimitive.CollapsibleContent>
         <div data-collapsible-content className="overflow-hidden transition-all duration-200 data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
           <div className="pt-2 pb-5">{children}</div>
         </div>

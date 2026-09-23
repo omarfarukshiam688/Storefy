@@ -154,13 +154,9 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
 
   return (
     <div className="rounded-xl border border-border/80 bg-white/70 shadow-sm shadow-black/[0.02] backdrop-blur-sm p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-semibold">Categories</h3>
-          <p className="text-sm text-muted-foreground mt-1">Organize your products into categories.</p>
-        </div>
+      <div className="flex items-center justify-between mb-6">
         {!isAdding && !editingId && (
-          <Button size="sm" onClick={() => setIsAdding(true)} className="h-10">
+          <Button size="sm" onClick={() => setIsAdding(true)} className="h-10 rounded-lg border border-violet-200 text-violet-700 shadow-sm hover:border-violet-300 hover:bg-violet-50">
             Add category
           </Button>
         )}

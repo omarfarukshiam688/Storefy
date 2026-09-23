@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password", "/verify-email"];
+const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/verify-email"];
 const PROTECTED_ROUTES = ["/admin", "/platform", "/dashboard"];
 
 export async function proxy(request: NextRequest) {
