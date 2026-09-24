@@ -24,10 +24,7 @@ export async function GET(
     const authResponse = handleAuthError(error);
     if (authResponse) return authResponse;
     console.error('Order detail error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Order not found' },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 }
 
@@ -67,9 +64,6 @@ export async function PATCH(
     const authResponse = handleAuthError(error);
     if (authResponse) return authResponse;
     console.error('Order update error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update order' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Failed to update order' }, { status: 400 });
   }
 }

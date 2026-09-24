@@ -4,6 +4,7 @@ import { getPendingInvitations, createInvitation } from '@/lib/team';
 import { createInvitationSchema } from '@/lib/validation/team';
 import { handleAuthError } from '@/lib/auth/errors';
 import { sendNotification } from '@/lib/notifications';
+import { checkRateLimit, recordRateLimit } from '@/lib/rate-limit';
 
 export async function GET() {
   try {
@@ -22,10 +23,7 @@ export async function GET() {
     const authResponse = handleAuthError(error);
     if (authResponse) return authResponse;
     console.error('Pending invitations error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch invitations' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch invitations' }, { status: 500 });
   }
 }
 
@@ -38,6 +36,21 @@ export async function POST(req: NextRequest) {
 
     if (context.role !== 'tenant_admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+    const inviteLimit = await checkRateLimit(
+      `invitation:${context.activeTenant.id}:${ip}`,
+      'invitation_create',
+      context.activeTenant.id,
+      10,
+      3600
+    );
+    if (!inviteLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many invitation attempts. Please try again later.' },
+        { status: 429 }
+      );
     }
 
     const body = await req.json();
@@ -58,6 +71,11 @@ export async function POST(req: NextRequest) {
       context.activeTenant.id,
       validated.data.email,
       validated.data.role
+    );
+    await recordRateLimit(
+      `invitation:${context.activeTenant.id}:${ip}`,
+      'invitation_create',
+      context.activeTenant.id
     );
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
@@ -80,9 +98,6 @@ export async function POST(req: NextRequest) {
     const authResponse = handleAuthError(error);
     if (authResponse) return authResponse;
     console.error('Create invitation error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create invitation' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create invitation' }, { status: 500 });
   }
 }

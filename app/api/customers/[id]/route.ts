@@ -34,10 +34,7 @@ export async function GET(
     return NextResponse.json({ customer, stats, orders: ordersResult.orders });
   } catch (error) {
     console.error('Customer detail error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Customer not found' },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
   }
 }
 
@@ -68,9 +65,6 @@ export async function PATCH(
     return NextResponse.json(customer);
   } catch (error) {
     console.error('Customer update error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update customer' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Failed to update customer' }, { status: 400 });
   }
 }

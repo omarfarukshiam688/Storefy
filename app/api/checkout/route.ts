@@ -4,9 +4,19 @@ import { getTenantBySlug } from '@/lib/storefront';
 import { checkoutRequestSchema } from '@/lib/validation/checkout';
 import { upsertCustomerFromOrder } from '@/lib/customers';
 import { sendNotification } from '@/lib/notifications';
+import { checkRateLimit, recordRateLimit } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+    const checkoutLimit = await checkRateLimit(`checkout:${ip}`, 'checkout', null, 5, 3600);
+    if (!checkoutLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many checkout attempts. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const validated = checkoutRequestSchema.safeParse(body);
 
@@ -201,6 +211,8 @@ export async function POST(req: NextRequest) {
         },
       }).catch(() => {});
     }
+
+    await recordRateLimit(`checkout:${ip}`, 'checkout', null);
 
     return NextResponse.json(
       {

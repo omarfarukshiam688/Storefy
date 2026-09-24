@@ -13,9 +13,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(invitation);
   } catch (error) {
     console.error('Validate invitation error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Invalid invitation' },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: 'Invalid invitation' }, { status: 404 });
   }
 }

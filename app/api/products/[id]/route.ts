@@ -68,7 +68,7 @@ export async function PATCH(
     if (error instanceof Error && (error.message === 'Product not found')) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to update product' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update product' }, { status: 500 });
   }
 }
 
@@ -98,6 +98,6 @@ export async function DELETE(
     if (error instanceof Error && error.message === 'Product not found') {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to delete product' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 });
   }
 }

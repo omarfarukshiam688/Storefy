@@ -47,9 +47,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const message = error instanceof Error ? error.message : 'Failed to update tenant settings';
     return NextResponse.json(
-      { error: message },
+      { error: 'Failed to update tenant settings' },
       { status: 500 }
     );
   }

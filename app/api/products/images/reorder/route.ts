@@ -36,6 +36,6 @@ export async function POST(req: NextRequest) {
     if (error instanceof Error && error.message === 'Product not found') {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to reorder images' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to reorder images' }, { status: 500 });
   }
 }

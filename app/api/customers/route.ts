@@ -23,9 +23,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error('Customers list error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch customers' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 });
   }
 }

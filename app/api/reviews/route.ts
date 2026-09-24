@@ -3,9 +3,19 @@ import { getTenantContext } from '@/lib/auth/tenant';
 import { getTenantBySlug } from '@/lib/storefront';
 import { createReview, listReviews } from '@/lib/reviews';
 import { createReviewSchema } from '@/lib/validation/review';
+import { checkRateLimit, recordRateLimit } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+    const reviewLimit = await checkRateLimit(`review:${ip}`, 'review_create', null, 5, 3600);
+    if (!reviewLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many review attempts. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const tenantSlug = body.tenantSlug as string | undefined;
 
@@ -27,13 +37,11 @@ export async function POST(req: NextRequest) {
     }
 
     const review = await createReview(tenant.id, validated.data);
+    await recordRateLimit(`review:${ip}`, 'review_create', null);
     return NextResponse.json(review, { status: 201 });
   } catch (error) {
     console.error('Review creation error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create review' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Failed to create review' }, { status: 400 });
   }
 }
 
@@ -62,9 +70,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error('Reviews list error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch reviews' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 });
   }
 }

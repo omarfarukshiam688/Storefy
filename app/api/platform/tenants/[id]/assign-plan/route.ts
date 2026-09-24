@@ -26,9 +26,6 @@ export async function POST(
     if (error instanceof Error && error.message.includes('Super admin')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to assign plan' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to assign plan' }, { status: 500 });
   }
 }

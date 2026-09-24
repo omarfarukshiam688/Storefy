@@ -113,10 +113,10 @@ export async function POST(req: NextRequest) {
         original_filename: sanitizeOriginalFilename(file.name),
         is_primary: images.length === 0, // first image becomes primary
       });
-    } catch (recordError) {
+    } catch {
       await deleteProductImageFile(storagePath);
       return NextResponse.json(
-        { error: recordError instanceof Error ? recordError.message : 'Failed to save image metadata' },
+        { error: 'Failed to save image metadata' },
         { status: 500 }
       );
     }
@@ -137,6 +137,6 @@ export async function POST(req: NextRequest) {
     if (error instanceof Error && error.message.includes('Invalid UUID')) {
       return NextResponse.json({ error: 'Invalid ID format' }, { status: 400 });
     }
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to upload image' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });
   }
 }

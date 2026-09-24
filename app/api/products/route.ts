@@ -56,6 +56,6 @@ export async function POST(req: NextRequest) {
     const authResponse = handleAuthError(error);
     if (authResponse) return authResponse;
     console.error('Product creation error:', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to create product' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
   }
 }

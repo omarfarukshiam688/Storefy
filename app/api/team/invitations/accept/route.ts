@@ -18,9 +18,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error('Accept invitation error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to accept invitation' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Failed to accept invitation' }, { status: 400 });
   }
 }

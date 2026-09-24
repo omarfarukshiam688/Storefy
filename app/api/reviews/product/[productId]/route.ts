@@ -39,9 +39,6 @@ export async function GET(
     return NextResponse.json(result);
   } catch (error) {
     console.error('Product reviews pagination error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch reviews' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 });
   }
 }
