@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Bell, Menu, Search, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { Bell, Menu, Search, Sparkles, ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from './sidebar';
 
@@ -10,6 +11,7 @@ interface DashboardShellProps {
   profileName?: string | null;
   storeName?: string | null;
   role?: 'tenant_admin' | 'tenant_staff' | null;
+  showUpgradeCta?: boolean;
 }
 
 export function DashboardShell({
@@ -17,6 +19,7 @@ export function DashboardShell({
   profileName,
   storeName,
   role,
+  showUpgradeCta,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
@@ -54,6 +57,29 @@ export function DashboardShell({
                   <Search className="h-4 w-4 text-violet-600" />
                   <span>Search</span>
                 </div>
+                {showUpgradeCta && (
+                  <Link href="/dashboard/upgrade" className="hidden sm:block">
+                    <Button
+                      size="sm"
+                      className="animate-upgrade-pulse bg-violet-600 text-white hover:bg-violet-700"
+                    >
+                      <ArrowUpRight className="h-4 w-4" />
+                      <span className="hidden md:inline font-bold">Upgrade Plan</span>
+                      <span className="md:hidden font-bold">Upgrade</span>
+                    </Button>
+                  </Link>
+                )}
+                {showUpgradeCta && (
+                  <Link href="/dashboard/upgrade" className="sm:hidden">
+                    <Button
+                      size="icon"
+                      variant="default"
+                      className="h-9 w-9 animate-upgrade-pulse bg-violet-600 text-white hover:bg-violet-700"
+                    >
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
                 <button
                   type="button"
                   aria-label="Notifications"
