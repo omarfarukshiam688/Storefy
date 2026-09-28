@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Shield,
   Store,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ interface PlatformSidebarProps {
 const platformNavItems = [
   { href: '/platform', label: 'Overview', icon: LayoutDashboard },
   { href: '/platform/tenants', label: 'Tenants', icon: Store },
+  { href: '/platform/announcements', label: 'Announcements', icon: Megaphone },
   { href: '/platform/plans', label: 'Plans', icon: Package },
   { href: '/platform/users', label: 'Users', icon: Users },
 ];

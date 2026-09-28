@@ -17,6 +17,7 @@ import {
   UserPlus,
   MessageSquare,
   TrendingUp,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ const navItems = [
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/customers', label: 'Customers', icon: Users },
   { href: '/dashboard/analytics', label: 'Analytics', icon: TrendingUp },
+  { href: '/dashboard/announcements', label: 'Announcements', icon: Megaphone },
   { href: '/dashboard/storefront', label: 'Storefront', icon: LayoutGrid },
 ];
 
