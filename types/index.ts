@@ -315,3 +315,33 @@ export interface Announcement {
   created_at: string;
   updated_at: string;
 }
+
+export type NotificationType =
+  | 'order.created'
+  | 'order.status_changed'
+  | 'review.created'
+  | 'announcement.published';
+
+export interface Notification {
+  id: string;
+  tenant_id: string | null;
+  recipient_user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  target_type: string | null;
+  target_id: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+export type SearchResultType = 'product' | 'order' | 'customer' | 'review' | 'team' | 'announcement';
+
+export interface SearchResultItem {
+  id: string;
+  type: SearchResultType;
+  title: string;
+  description: string;
+  href: string;
+  meta?: string;
+}

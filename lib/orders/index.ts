@@ -269,6 +269,20 @@ export async function updateOrderStatus(
     }).catch(() => {});
   }
 
+  try {
+    const { createNotificationsForTenantMembers } = await import('@/lib/notifications/in-app');
+    await createNotificationsForTenantMembers({
+      tenantId,
+      type: 'order.status_changed',
+      title: 'Order Status Updated',
+      message: `Order ${order.order_number} is now ${nextStatus}`,
+      targetType: 'order',
+      targetId: order.id,
+    });
+  } catch {
+    // notification failure should not break order updates
+  }
+
   return order as Order;
 }
 

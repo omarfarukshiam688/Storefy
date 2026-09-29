@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getBytesFromStorage } from '@/lib/plans/usage';
 import type { Tenant, Plan } from '@/types';
 
 export interface PlatformOverview {
@@ -65,52 +66,56 @@ async function getTenantResourceUsageFromClient(
   supabase: Awaited<ReturnType<typeof createClient>>,
   tenantId: string
 ): Promise<{ products: number; orders: number; members: number; storage_used_bytes: number }> {
-  const [activeProductsResult, totalOrdersResult, membersResult, productImagesResult, storeAssetsResult] =
-    await Promise.all([
-      supabase
-        .from('products')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .eq('is_archived', false),
-      supabase
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId),
-      supabase
-        .from('tenant_members')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true),
-      supabase
-        .from('product_images')
-        .select('file_size')
-        .eq('tenant_id', tenantId),
-      supabase
-        .from('store_assets')
-        .select('file_size')
-        .eq('tenant_id', tenantId),
-    ]);
+  const [
+    activeProductsResult,
+    totalOrdersResult,
+    membersResult,
+    productImageRows,
+    storeAssetRows,
+  ] = await Promise.all([
+    supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .eq('is_archived', false),
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId),
+    supabase
+      .from('tenant_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true),
+    supabase
+      .from('product_images')
+      .select('storage_path')
+      .eq('tenant_id', tenantId),
+    supabase
+      .from('store_assets')
+      .select('storage_path')
+      .eq('tenant_id', tenantId),
+  ]);
 
-  let productImageBytes = 0;
-  if (!productImagesResult.error && productImagesResult.data) {
-    for (const row of productImagesResult.data) {
-      productImageBytes += row.file_size ?? 0;
-    }
-  }
+  const productImagePaths = (productImageRows.data ?? [])
+    .map((row) => row.storage_path)
+    .filter((path): path is string => typeof path === 'string' && path.length > 0);
 
-  let storeAssetBytes = 0;
-  if (!storeAssetsResult.error && storeAssetsResult.data) {
-    for (const row of storeAssetsResult.data) {
-      storeAssetBytes += row.file_size ?? 0;
-    }
-  }
+  const storeAssetPaths = (storeAssetRows.data ?? [])
+    .map((row) => row.storage_path)
+    .filter((path): path is string => typeof path === 'string' && path.length > 0);
+
+  const [productImageStorageBytes, storeAssetStorageBytes] = await Promise.all([
+    getBytesFromStorage('product-images', productImagePaths),
+    getBytesFromStorage('store-assets', storeAssetPaths),
+  ]);
 
   return {
     products: activeProductsResult.count ?? 0,
     orders: totalOrdersResult.count ?? 0,
     members: membersResult.count ?? 0,
-    storage_used_bytes: productImageBytes + storeAssetBytes,
+    storage_used_bytes: productImageStorageBytes + storeAssetStorageBytes,
   };
 }
 

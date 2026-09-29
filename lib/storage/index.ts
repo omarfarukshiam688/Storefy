@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/admin';
+import { getBytesFromStorage } from '@/lib/plans/usage';
 import type { ProductImage } from '@/types';
 
 export const PRODUCT_IMAGES_BUCKET = 'product-images';
@@ -276,31 +277,31 @@ export async function assertStorageQuota(tenantId: string, incomingFileSize: num
     return;
   }
 
-  const { data: imageRows, error: imageError } = await supabase
-    .from('product_images')
-    .select('file_size')
-    .eq('tenant_id', tenantId);
+  const [productImageRows, storeAssetRows] = await Promise.all([
+    supabase
+      .from('product_images')
+      .select('storage_path')
+      .eq('tenant_id', tenantId),
+    supabase
+      .from('store_assets')
+      .select('storage_path')
+      .eq('tenant_id', tenantId),
+  ]);
 
-  let productImageBytes = 0;
-  if (!imageError && imageRows) {
-    for (const row of imageRows) {
-      productImageBytes += row.file_size;
-    }
-  }
+  const productImagePaths = (productImageRows.data ?? [])
+    .map((row) => row.storage_path)
+    .filter((path): path is string => typeof path === 'string' && path.length > 0);
 
-  let storeAssetBytes = 0;
-  const { data: storeAssetRows, error: storeError } = await supabase
-    .from('store_assets')
-    .select('file_size')
-    .eq('tenant_id', tenantId);
+  const storeAssetPaths = (storeAssetRows.data ?? [])
+    .map((row) => row.storage_path)
+    .filter((path): path is string => typeof path === 'string' && path.length > 0);
 
-  if (!storeError && storeAssetRows) {
-    for (const row of storeAssetRows) {
-      storeAssetBytes += row.file_size;
-    }
-  }
+  const [productImageStorageBytes, storeAssetStorageBytes] = await Promise.all([
+    getBytesFromStorage('product-images', productImagePaths),
+    getBytesFromStorage('store-assets', storeAssetPaths),
+  ]);
 
-  const currentUsage = productImageBytes + storeAssetBytes;
+  const currentUsage = productImageStorageBytes + storeAssetStorageBytes;
 
   if (currentUsage + incomingFileSize > plan.storage_limit_bytes) {
     throw new Error(

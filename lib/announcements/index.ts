@@ -73,6 +73,21 @@ export async function createAnnouncement(input: {
     throw new Error(error?.message ?? 'Failed to create announcement');
   }
 
+  if (input.is_published) {
+    try {
+      const { createNotificationsForAllUsers } = await import('@/lib/notifications/in-app');
+      await createNotificationsForAllUsers({
+        type: 'announcement.published',
+        title: 'New Announcement',
+        message: data.title,
+        targetType: 'announcement',
+        targetId: data.id,
+      });
+    } catch {
+      // notification failure should not break announcement creation
+    }
+  }
+
   return data as Announcement;
 }
 

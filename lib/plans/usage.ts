@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/admin';
 
 export interface TenantResourceUsage {
   product_used: number;
@@ -15,6 +16,40 @@ export function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+export async function getBytesFromStorage(
+  bucket: string,
+  paths: string[]
+): Promise<number> {
+  if (paths.length === 0) {
+    return 0;
+  }
+
+  const supabase = createServiceClient();
+  const sizes = await Promise.all(
+    paths.map(async (path) => {
+      try {
+        const { data: info, error: infoError } = await supabase.storage
+          .from(bucket)
+          .info(path);
+
+        if (infoError || !info) {
+          return 0;
+        }
+
+        const size = (info as { size?: number }).size;
+        if (typeof size === 'number' && size > 0) {
+          return size;
+        }
+        return 0;
+      } catch {
+        return 0;
+      }
+    })
+  );
+
+  return sizes.reduce((sum, size) => sum + size, 0);
 }
 
 export async function getTenantResourceUsage(tenantId: string): Promise<TenantResourceUsage> {
@@ -43,8 +78,8 @@ export async function getTenantResourceUsage(tenantId: string): Promise<TenantRe
   const [
     activeProductsResult,
     totalOrdersResult,
-    productImagesResult,
-    storeAssetsResult,
+    productImageRows,
+    storeAssetRows,
   ] = await Promise.all([
     supabase
       .from('products')
@@ -58,34 +93,33 @@ export async function getTenantResourceUsage(tenantId: string): Promise<TenantRe
       .eq('tenant_id', tenantId),
     supabase
       .from('product_images')
-      .select('file_size')
+      .select('storage_path')
       .eq('tenant_id', tenantId),
     supabase
       .from('store_assets')
-      .select('file_size')
+      .select('storage_path')
       .eq('tenant_id', tenantId),
   ]);
 
-  let productImageBytes = 0;
-  if (!productImagesResult.error && productImagesResult.data) {
-    for (const row of productImagesResult.data) {
-      productImageBytes += row.file_size;
-    }
-  }
+  const productImagePaths = (productImageRows.data ?? [])
+    .map((row) => row.storage_path)
+    .filter((path): path is string => typeof path === 'string' && path.length > 0);
 
-  let storeAssetBytes = 0;
-  if (!storeAssetsResult.error && storeAssetsResult.data) {
-    for (const row of storeAssetsResult.data) {
-      storeAssetBytes += row.file_size;
-    }
-  }
+  const storeAssetPaths = (storeAssetRows.data ?? [])
+    .map((row) => row.storage_path)
+    .filter((path): path is string => typeof path === 'string' && path.length > 0);
+
+  const [productImageStorageBytes, storeAssetStorageBytes] = await Promise.all([
+    getBytesFromStorage('product-images', productImagePaths),
+    getBytesFromStorage('store-assets', storeAssetPaths),
+  ]);
 
   return {
     product_used: activeProductsResult.count ?? 0,
     product_limit: plan.product_limit,
     order_used: totalOrdersResult.count ?? 0,
     order_limit: plan.order_limit,
-    storage_used_bytes: productImageBytes + storeAssetBytes,
+    storage_used_bytes: productImageStorageBytes + storeAssetStorageBytes,
     storage_limit_bytes: plan.storage_limit_bytes,
   };
 }

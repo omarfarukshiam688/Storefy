@@ -212,6 +212,20 @@ export async function POST(req: NextRequest) {
       }).catch(() => {});
     }
 
+    try {
+      const { createNotificationsForTenantMembers } = await import('@/lib/notifications/in-app');
+      await createNotificationsForTenantMembers({
+        tenantId: tenant.id,
+        type: 'order.created',
+        title: 'New Order',
+        message: `New order from ${order.customer_name} — ৳${Number(order.subtotal).toFixed(2)}`,
+        targetType: 'order',
+        targetId: order.id,
+      });
+    } catch {
+      // notification failure should not break checkout
+    }
+
     await recordRateLimit(`checkout:${ip}`, 'checkout', null);
 
     return NextResponse.json(

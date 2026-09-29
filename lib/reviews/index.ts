@@ -223,6 +223,35 @@ export async function createReview(tenantId: string, input: CreateReviewInput): 
 
   await recordRateLimit(rateLimitKey, 'review_submit', tenantId);
 
+  let productName: string | null = null;
+  try {
+    const { data: product } = await supabase
+      .from('products')
+      .select('name')
+      .eq('tenant_id', tenantId)
+      .eq('id', validated.product_id)
+      .maybeSingle();
+
+    productName = product?.name ?? null;
+  } catch {
+    // ignore lookup failure for notification
+  }
+
+  try {
+    const { createNotificationsForTenantMembers } = await import('@/lib/notifications/in-app');
+    await createNotificationsForTenantMembers({
+      tenantId,
+      type: 'review.created',
+      title: 'New Review Received',
+      message: `New review received for ${productName ?? 'a product'}`,
+      targetType: 'review',
+      targetId: review.id,
+      role: 'tenant_admin',
+    });
+  } catch {
+    // notification failure should not break review creation
+  }
+
   return normalizeReview(review);
 }
 

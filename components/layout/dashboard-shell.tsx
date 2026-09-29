@@ -2,9 +2,11 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bell, Menu, Search, Sparkles, ArrowUpRight } from 'lucide-react';
+import { Menu, Sparkles, ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from './sidebar';
+import { SearchPopover } from '@/components/dashboard/search-popover';
+import { NotificationCenter } from '@/components/dashboard/notification-center';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -53,10 +55,7 @@ export function DashboardShell({
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="hidden items-center gap-2 rounded-full border border-violet-100 bg-violet-50/60 px-3 py-2 text-sm text-slate-500 md:flex">
-                  <Search className="h-4 w-4 text-violet-600" />
-                  <span>Search</span>
-                </div>
+                <SearchPopover />
                 {showUpgradeCta && (
                   <Link href="/dashboard/upgrade" className="hidden sm:block">
                     <Button
@@ -80,13 +79,7 @@ export function DashboardShell({
                     </Button>
                   </Link>
                 )}
-                <button
-                  type="button"
-                  aria-label="Notifications"
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-100 bg-white/70 text-slate-700 shadow-sm transition-colors hover:border-violet-200 hover:text-violet-700"
-                >
-                  <Bell className="h-4 w-4" />
-                </button>
+                <NotificationCenter />
                 <div className="flex items-center gap-3 rounded-full border border-violet-100 bg-white/80 px-2.5 py-1.5 shadow-sm">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-sky-500 text-xs font-semibold text-white">
                     {(profileName ?? 'U').charAt(0).toUpperCase()}
