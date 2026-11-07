@@ -17,8 +17,9 @@ const typeLabels: Record<string, string> = {
 };
 
 export function SearchPopover() {
-  const [open, setOpen] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(false);
   const [query, setQuery] = React.useState('');
+  const open = expanded && query.trim().length > 0;
   const [results, setResults] = React.useState<SearchResultItem[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -59,24 +60,21 @@ export function SearchPopover() {
   }, [query]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  React.useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        setQuery('');
-      }
-    };
-    if (open) {
-      document.addEventListener('keydown', handler);
-      return () => document.removeEventListener('keydown', handler);
+  const handleOpenChange = React.useCallback((next: boolean) => {
+    if (!next) {
+      setExpanded(false);
+      setQuery('');
+      setResults([]);
+      setError(null);
+      setLoading(false);
     }
-  }, [open]);
+  }, []);
 
   React.useEffect(() => {
-    if (open) {
+    if (expanded) {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [open]);
+  }, [expanded]);
 
   const grouped = results.reduce<Record<string, SearchResultItem[]>>((acc, item) => {
     const group = typeLabels[item.type] || item.type;
@@ -86,15 +84,42 @@ export function SearchPopover() {
   }, {});
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="hidden items-center gap-2 rounded-full border border-violet-100 bg-violet-50/60 px-3 py-2 text-sm text-slate-500 md:flex"
-        >
-          <Search className="h-4 w-4 text-violet-600" />
-          <span>Search</span>
-        </button>
+        <div className="flex items-center">
+          {open ? (
+            <div className="flex items-center gap-2 rounded-full border border-violet-100 bg-white/80 px-3 py-2 text-sm">
+              <Search className="h-4 w-4 text-slate-400" />
+              <Input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search products, orders..."
+                className="h-6 w-48 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+              />
+              {query && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0"
+                  onClick={() => setQuery('')}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="hidden items-center gap-2 rounded-full border border-violet-100 bg-violet-50/60 px-3 py-2 text-sm text-slate-500 md:flex"
+            >
+              <Search className="h-4 w-4 text-violet-600" />
+              <span>Search</span>
+            </button>
+          )}
+        </div>
       </PopoverTrigger>
       <PopoverContent
         className="w-[calc(100vw-2rem)] max-w-sm p-0"
@@ -105,27 +130,6 @@ export function SearchPopover() {
           inputRef.current?.focus();
         }}
       >
-        <div className="flex items-center gap-2 border-b border-violet-100 px-3 py-2">
-          <Search className="h-4 w-4 text-slate-400" />
-          <Input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search products, orders..."
-            className="border-0 shadow-none focus-visible:ring-0"
-          />
-          {query && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 shrink-0"
-              onClick={() => setQuery('')}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
         <div className="max-h-[320px] overflow-y-auto p-1.5">
           {loading && (
             <div className="space-y-2 p-2">

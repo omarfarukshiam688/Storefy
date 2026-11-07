@@ -72,9 +72,11 @@ export function NotificationCenterClient({ initialPage = 1 }: { initialPage?: nu
       if (res.ok) {
         setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
         setUnreadCount((prev) => Math.max(0, prev - 1));
+      } else {
+        await fetchNotifications(page);
       }
     } catch {
-      // silent
+      await fetchNotifications(page);
     }
   };
 
@@ -87,9 +89,11 @@ export function NotificationCenterClient({ initialPage = 1 }: { initialPage?: nu
       if (res.ok) {
         setNotifications([]);
         setUnreadCount(0);
+      } else {
+        await fetchNotifications(page);
       }
     } catch {
-      // silent
+      await fetchNotifications(page);
     } finally {
       setMarkingAllRead(false);
     }

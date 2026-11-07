@@ -113,6 +113,9 @@ export function NotificationCenter() {
 
   const handleMarkAllRead = async () => {
     setMarkingAllRead(true);
+    const previousNotifications = notifications;
+    const previousUnreadCount = unreadCount;
+
     try {
       const res = await fetch(`/api/notifications`, {
         method: 'DELETE',
@@ -126,6 +129,8 @@ export function NotificationCenter() {
         throw new Error('Failed to clear notifications');
       }
     } catch {
+      setNotifications(previousNotifications);
+      setUnreadCount(previousUnreadCount);
       toast.error('Failed to clear notifications');
     } finally {
       setMarkingAllRead(false);
