@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { listCustomers } from '@/lib/customers';
+import { handleAuthError } from '@/lib/auth/errors';
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest) {
     const result = await listCustomers(context.activeTenant.id, filters);
     return NextResponse.json(result);
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Customers list error:', error);
     return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 });
   }

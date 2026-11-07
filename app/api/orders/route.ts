@@ -21,6 +21,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No active tenant' }, { status: 403 });
     }
 
+    if (context.role !== 'tenant_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const filters: OrderListFilters = {
       search: searchParams.get('search') || undefined,

@@ -17,6 +17,10 @@ export async function GET(
       return NextResponse.json({ error: 'No active tenant' }, { status: 403 });
     }
 
+    if (context.role !== 'tenant_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { id } = await params;
     const order = await getOrder(context.activeTenant.id, id);
     return NextResponse.json(order);
@@ -36,6 +40,10 @@ export async function PATCH(
     const context = await getTenantContext();
     if (!context.activeTenant) {
       return NextResponse.json({ error: 'No active tenant' }, { status: 403 });
+    }
+
+    if (context.role !== 'tenant_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await req.json();

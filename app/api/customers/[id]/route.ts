@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { getCustomer, updateCustomer, getCustomerOrders, getCustomerStats } from '@/lib/customers';
+import { handleAuthError } from '@/lib/auth/errors';
 import { z } from 'zod';
 
 const updateCustomerSchema = z.object({
@@ -33,38 +34,46 @@ export async function GET(
 
     return NextResponse.json({ customer, stats, orders: ordersResult.orders });
   } catch (error) {
+    const authResponse = handleAuthError(error);
+    if (authResponse) return authResponse;
     console.error('Customer detail error:', error);
     return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
   }
 }
 
 export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const context = await getTenantContext();
-    if (!context.activeTenant) {
-      return NextResponse.json({ error: 'No active tenant' }, { status: 403 });
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+  ) {
+    try {
+      const context = await getTenantContext();
+      if (!context.activeTenant) {
+        return NextResponse.json({ error: 'No active tenant' }, { status: 403 });
+      }
+
+      if (context.role !== 'tenant_admin') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      const body = await req.json();
+      const validated = updateCustomerSchema.safeParse(body);
+
+      if (!validated.success) {
+        return NextResponse.json(
+          { error: 'Validation failed', details: validated.error.flatten() },
+          { status: 400 }
+        );
+      }
+
+      const { id } = await params;
+      const updates = validated.data;
+
+      const customer = await updateCustomer(context.activeTenant.id, id, updates);
+      return NextResponse.json(customer);
+    } catch (error) {
+      const authResponse = handleAuthError(error);
+      if (authResponse) return authResponse;
+      console.error('Customer update error:', error);
+      return NextResponse.json({ error: 'Failed to update customer' }, { status: 400 });
     }
-
-    const body = await req.json();
-    const validated = updateCustomerSchema.safeParse(body);
-
-    if (!validated.success) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: validated.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    const { id } = await params;
-    const updates = validated.data;
-
-    const customer = await updateCustomer(context.activeTenant.id, id, updates);
-    return NextResponse.json(customer);
-  } catch (error) {
-    console.error('Customer update error:', error);
-    return NextResponse.json({ error: 'Failed to update customer' }, { status: 400 });
   }
-}
