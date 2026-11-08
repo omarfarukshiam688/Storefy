@@ -22,6 +22,10 @@ export default async function DashboardLayout({
     redirect('/verify-email');
   }
 
+  if (!user.email_confirmed_at) {
+    redirect('/verify-email');
+  }
+
   let context;
   try {
     context = await getTenantContext();

@@ -384,8 +384,6 @@ export async function acceptInvitation(
  * Get invitation details by token (for the acceptance page)
  */
 export async function getInvitationByToken(token: string): Promise<{
-  id: string;
-  tenant_id: string;
   email: string;
   role: string;
   expires_at: string;
@@ -400,8 +398,6 @@ export async function getInvitationByToken(token: string): Promise<{
   const { data, error } = await supabase
     .from('tenant_invitations')
     .select(`
-      id,
-      tenant_id,
       email,
       role,
       expires_at,
@@ -421,8 +417,6 @@ export async function getInvitationByToken(token: string): Promise<{
   const tenants = (data.tenants as { name: string; slug: string }[] | null)?.[0] ?? null;
 
   return {
-    id: data.id,
-    tenant_id: data.tenant_id,
     email: data.email,
     role: data.role,
     expires_at: data.expires_at,

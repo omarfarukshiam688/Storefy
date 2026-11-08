@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/lib/auth/tenant';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 const updateEmailSchema = z.object({
@@ -85,6 +86,29 @@ export async function PATCH(req: NextRequest) {
 
     if (type === 'password') {
       const validated = updatePasswordSchema.parse(fields);
+
+      const user = await requireSuperAdmin();
+
+      // Verify current password against the authenticated user's Supabase Auth account.
+      const verifier = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      );
+
+      const { error: verifyError } = await verifier.auth.signInWithPassword({
+        email: user.email!,
+        password: validated.currentPassword,
+      });
+
+      if (verifyError) {
+        return NextResponse.json({ error: 'Invalid current password' }, { status: 400 });
+      }
 
       const supabase = await createClient();
       const { error: authError } = await supabase.auth.updateUser({
