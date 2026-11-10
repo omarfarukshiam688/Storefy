@@ -42,7 +42,7 @@ export function AuthPanel() {
 
         <div className="mx-auto flex w-full max-w-[560px] flex-col items-center justify-center px-4">
           <div className="relative flex h-[520px] w-full max-w-[620px] items-center justify-center overflow-hidden rounded-[28px]">
-            <div
+          <div
               ref={animationRef}
               className="relative z-10 h-[480px] w-[480px] scale-[1.02]"
               aria-label="Storefy animation illustration"

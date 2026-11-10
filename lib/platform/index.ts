@@ -28,6 +28,7 @@ export interface PlatformTenant {
     description: string | null;
     price_monthly: number;
     product_limit: number;
+    archived_product_limit: number;
     order_limit: number;
     storage_limit_bytes: number;
     features: Record<string, unknown>;
@@ -349,6 +350,7 @@ export async function getPlatformTenants(filters?: {
             description: plan.description,
             price_monthly: plan.price_monthly,
             product_limit: plan.product_limit,
+            archived_product_limit: plan.archived_product_limit,
             order_limit: plan.order_limit,
             storage_limit_bytes: plan.storage_limit_bytes,
             features: plan.features,
@@ -430,7 +432,7 @@ export async function getPlatformTenantById(tenantId: string): Promise<PlatformT
 
   const { data: plan, error: planError } = await supabase
     .from('plans')
-    .select('id, name, description, price_monthly, product_limit, order_limit, storage_limit_bytes, features, is_active')
+    .select('id, name, description, price_monthly, product_limit, archived_product_limit, order_limit, storage_limit_bytes, features, is_active')
     .eq('id', tenant.plan_id)
     .maybeSingle();
 
@@ -456,6 +458,7 @@ export async function getPlatformTenantById(tenantId: string): Promise<PlatformT
           description: plan.description,
           price_monthly: plan.price_monthly,
           product_limit: plan.product_limit,
+          archived_product_limit: plan.archived_product_limit,
           order_limit: plan.order_limit,
           storage_limit_bytes: plan.storage_limit_bytes,
           features: plan.features,

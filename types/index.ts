@@ -6,6 +6,7 @@ export interface Plan {
   description: string | null;
   price_monthly: number;
   product_limit: number;
+  archived_product_limit: number;
   order_limit: number;
   storage_limit_bytes: number;
   features: Record<string, unknown>;
@@ -64,6 +65,68 @@ export interface TenantInvitation {
 export interface SuperAdmin {
   user_id: string;
   created_at: string;
+}
+
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'suspended' | 'canceled' | 'expired';
+
+export interface Subscription {
+  id: string;
+  tenant_id: string;
+  plan_id: string;
+  status: SubscriptionStatus;
+  billing_cycle_anchor: string;
+  current_period_start: string;
+  current_period_end: string;
+  trial_start: string | null;
+  trial_end: string | null;
+  grace_period_end: string | null;
+  canceled_at: string | null;
+  cancel_at_period_end: boolean;
+  suspended_at: string | null;
+  ended_at: string | null;
+  scheduled_plan_id: string | null;
+  scheduled_plan_change_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PaymentPurpose = 'subscription_initial' | 'subscription_renewal' | 'subscription_upgrade' | 'subscription_downgrade' | 'manual_topup' | 'refund';
+
+export type PaymentProvider = 'bkash' | 'sslcommerz' | 'stripe' | 'manual' | 'system';
+
+export type BillingPaymentStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'verification_required';
+
+export type VerificationDecision = 'approved' | 'rejected';
+
+export interface PaymentVerificationAudit {
+  id: string;
+  payment_id: string;
+  admin_user_id: string;
+  decision: VerificationDecision;
+  previous_status: BillingPaymentStatus;
+  new_status: BillingPaymentStatus;
+  reason: string | null;
+  created_at: string;
+}
+
+export interface Payment {
+  id: string;
+  tenant_id: string;
+  subscription_id: string | null;
+  purpose: PaymentPurpose;
+  provider: PaymentProvider;
+  amount: number;
+  currency: string;
+  status: BillingPaymentStatus;
+  provider_transaction_id: string | null;
+  idempotency_key: string;
+  metadata: Record<string, unknown>;
+  verified_by: string | null;
+  verified_at: string | null;
+  failure_reason: string | null;
+  verification_notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Product {

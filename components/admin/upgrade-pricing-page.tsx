@@ -12,7 +12,7 @@ interface UpgradePricingPageProps {
   currentPlanId: string | null;
 }
 
-const PAID_PLAN_NAMES = new Set(['Starter', 'Growth', 'Scale']);
+const PAID_PLAN_NAMES = new Set(['STARTER', 'GROWTH', 'BUSINESS']);
 
 function getPlanFeatures(plan: Plan): string[] {
   const features: string[] = [];
@@ -33,12 +33,15 @@ function getPlanFeatures(plan: Plan): string[] {
   if (productLimit === -1) {
     features.push('Unlimited products');
   } else {
-    features.push(`Up to ${productLimit.toLocaleString()} products`);
+    features.push(`Up to ${productLimit.toLocaleString()} active products`);
+    if (plan.archived_product_limit > 0) {
+      features.push(`Up to ${plan.archived_product_limit.toLocaleString()} archived products`);
+    }
   }
 
   const orderLimit = plan.order_limit;
   if (orderLimit === -1) {
-    features.push('Unlimited orders');
+    features.push('Unlimited orders/month');
   } else {
     features.push(`Up to ${orderLimit.toLocaleString()} orders/month`);
   }
@@ -60,8 +63,6 @@ function formatBDT(amount: number): string {
 }
 
 export function UpgradePricingPage({ plans, currentPlanId }: UpgradePricingPageProps) {
-  const [billingPeriod, setBillingPeriod] = React.useState<'monthly' | 'yearly'>('monthly');
-
   const paidPlans = plans
     .filter((plan) => plan.is_active && PAID_PLAN_NAMES.has(plan.name))
     .sort((a, b) => a.price_monthly - b.price_monthly);
@@ -97,55 +98,12 @@ export function UpgradePricingPage({ plans, currentPlanId }: UpgradePricingPageP
         </p>
       </div>
 
-      <div className="flex items-center justify-center">
-        <div
-          className="inline-flex rounded-xl border border-violet-200 bg-violet-50/60 p-1"
-          role="group"
-          aria-label="Billing period"
-        >
-          <button
-            type="button"
-            onClick={() => setBillingPeriod('monthly')}
-            className={cn(
-              'rounded-lg px-4 py-2 text-sm font-semibold transition-all',
-              billingPeriod === 'monthly'
-                ? 'bg-white text-violet-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            )}
-            aria-pressed={billingPeriod === 'monthly'}
-          >
-            Monthly
-          </button>
-          <button
-            type="button"
-            onClick={() => setBillingPeriod('yearly')}
-            className={cn(
-              'rounded-lg px-4 py-2 text-sm font-semibold transition-all',
-              billingPeriod === 'yearly'
-                ? 'bg-white text-violet-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            )}
-            aria-pressed={billingPeriod === 'yearly'}
-          >
-            Yearly
-            <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-              Save 10%
-            </span>
-          </button>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
         {paidPlans.map((plan) => {
           const state = getPlanState(plan);
           const isCurrent = state === 'current';
-          const isMostPopular = plan.name === 'Growth';
+          const isMostPopular = plan.name === 'GROWTH';
           const monthlyPrice = plan.price_monthly;
-          const yearlyPrice = Math.round(monthlyPrice * 12 * 0.9);
-          const yearlySavings = Math.round(monthlyPrice * 12 * 0.1);
-          const effectiveMonthly = Math.round((monthlyPrice * 12 * 0.9) / 12);
-          const displayPrice = billingPeriod === 'monthly' ? monthlyPrice : yearlyPrice;
-          const displayPeriod = billingPeriod === 'monthly' ? '/month' : '/year';
           const features = getPlanFeatures(plan);
 
           return (
@@ -182,20 +140,10 @@ export function UpgradePricingPage({ plans, currentPlanId }: UpgradePricingPageP
                 <div className="mt-10 text-center">
                   <div className="flex items-baseline justify-center gap-1">
                     <span className="text-4xl font-black tracking-tight text-slate-900">
-                      {formatBDT(displayPrice)}
+                      {formatBDT(monthlyPrice)}
                     </span>
-                    <span className="text-sm text-slate-500">{displayPeriod}</span>
+                    <span className="text-sm text-slate-500">/month</span>
                   </div>
-                  {billingPeriod === 'yearly' && monthlyPrice > 0 && (
-                    <div className="mt-3 space-y-1">
-                      <p className="text-sm font-semibold text-emerald-600">
-                        Save {formatBDT(yearlySavings)}/year
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {formatBDT(effectiveMonthly)}/month equivalent
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 <ul className="mt-10 space-y-4">

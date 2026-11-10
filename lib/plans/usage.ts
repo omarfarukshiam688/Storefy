@@ -4,6 +4,8 @@ import { createServiceClient } from '@/lib/supabase/admin';
 export interface TenantResourceUsage {
   product_used: number;
   product_limit: number;
+  archived_product_used: number;
+  archived_product_limit: number;
   order_used: number;
   order_limit: number;
   storage_used_bytes: number;
@@ -67,7 +69,7 @@ export async function getTenantResourceUsage(tenantId: string): Promise<TenantRe
 
   const { data: plan, error: planError } = await supabase
     .from('plans')
-    .select('product_limit, order_limit, storage_limit_bytes')
+    .select('product_limit, archived_product_limit, order_limit, storage_limit_bytes')
     .eq('id', tenant.plan_id)
     .single();
 
@@ -77,6 +79,7 @@ export async function getTenantResourceUsage(tenantId: string): Promise<TenantRe
 
   const [
     activeProductsResult,
+    archivedProductsResult,
     totalOrdersResult,
     productImageRows,
     storeAssetRows,
@@ -87,6 +90,11 @@ export async function getTenantResourceUsage(tenantId: string): Promise<TenantRe
       .eq('tenant_id', tenantId)
       .eq('is_active', true)
       .eq('is_archived', false),
+    supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('is_archived', true),
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
@@ -117,6 +125,8 @@ export async function getTenantResourceUsage(tenantId: string): Promise<TenantRe
   return {
     product_used: activeProductsResult.count ?? 0,
     product_limit: plan.product_limit,
+    archived_product_used: archivedProductsResult.count ?? 0,
+    archived_product_limit: plan.archived_product_limit,
     order_used: totalOrdersResult.count ?? 0,
     order_limit: plan.order_limit,
     storage_used_bytes: productImageStorageBytes + storeAssetStorageBytes,
