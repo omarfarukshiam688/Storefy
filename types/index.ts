@@ -125,6 +125,10 @@ export interface Payment {
   verified_at: string | null;
   failure_reason: string | null;
   verification_notes: string | null;
+  renewal_period_start: string | null;
+  renewal_period_end: string | null;
+  target_plan_id: string | null;
+  expected_amount: number | null;
   created_at: string;
   updated_at: string;
 }

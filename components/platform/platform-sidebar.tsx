@@ -14,6 +14,7 @@ import {
   Shield,
   Store,
   Megaphone,
+  CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ const platformNavItems = [
   { href: '/platform/tenants', label: 'Tenants', icon: Store },
   { href: '/platform/announcements', label: 'Announcements', icon: Megaphone },
   { href: '/platform/plans', label: 'Plans', icon: Package },
+  { href: '/platform/payments', label: 'Payments', icon: CreditCard },
   { href: '/platform/users', label: 'Users', icon: Users },
 ];
 
@@ -71,14 +73,7 @@ function NavContent({
         </div>
       </div>
 
-      <div className="mb-2 px-5">
-        <div className="flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-700">
-          <Shield className="h-3.5 w-3.5" />
-          Platform Administration
-        </div>
-      </div>
-
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1 px-3 pb-4 pt-1">
         {platformNavItems.map((item) => {
           const active = isActive(item.href);
           return (
