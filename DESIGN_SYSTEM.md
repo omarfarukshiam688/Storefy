@@ -42,18 +42,18 @@ Light mode:
 - `--card-foreground`: near-black slate
 - `--popover`: white
 - `--popover-foreground`: near-black slate
-- `--primary`: dark slate `hsl(222.2 47.4% 11.2%)`
-- `--primary-foreground`: near-white `hsl(210 40% 98%)`
-- `--secondary`: light gray `hsl(210 40% 96.1%)`
+- `--primary`: violet/indigo brand `hsl(260 84% 56%)`
+- `--primary-foreground`: near-white `hsl(0 0% 100%)`
+- `--secondary`: light gray `hsl(220 60% 97%)`
 - `--secondary-foreground`: dark slate
-- `--muted`: light gray
-- `--muted-foreground`: medium gray
-- `--accent`: light gray
+- `--muted`: light gray `hsl(220 30% 96%)`
+- `--muted-foreground`: medium gray `hsl(215.4 16.3% 46.9%)`
+- `--accent`: light cyan tint `hsl(190 90% 95%)`
 - `--accent-foreground`: dark slate
 - `--destructive`: red `hsl(0 84.2% 60.2%)`
-- `--border`: light border gray
-- `--input`: light input gray
-- `--ring`: near-black slate
+- `--border`: light border gray `hsl(220 20% 90%)`
+- `--input`: light input gray `hsl(220 20% 90%)`
+- `--ring`: violet/indigo brand `hsl(260 84% 56%)`
 
 Dark mode:
 - `--background`: dark slate `hsl(222.2 84% 4.9%)`
@@ -62,7 +62,7 @@ Dark mode:
 - `--card-foreground`: near-white
 - `--popover`: dark slate
 - `--popover-foreground`: near-white
-- `--primary`: near-white
+- `--primary`: violet/indigo brand `hsl(260 70% 60%)`
 - `--primary-foreground`: dark slate
 - `--secondary`: dark slate
 - `--secondary-foreground`: near-white
@@ -73,7 +73,7 @@ Dark mode:
 - `--destructive`: dark red
 - `--border`: dark border gray
 - `--input`: dark input gray
-- `--ring`: light slate
+- `--ring`: violet/indigo brand `hsl(260 70% 60%)`
 
 ### Usage Rules
 - Use semantic tokens (`bg-primary`, `text-muted-foreground`, `border-border`, etc.) everywhere.
@@ -126,9 +126,9 @@ Do not use arbitrary values like `p-[17px]` unless there is a clear design reaso
 ## 5. Border Radius
 
 Defined in `app/globals.css`:
-- `--radius-lg`: `0.5rem` (8px)
-- `--radius-md`: `calc(var(--radius-lg) - 2px)` (6px)
-- `--radius-sm`: `calc(var(--radius-lg) - 4px)` (4px)
+- `--radius-lg`: `0.625rem` (10px)
+- `--radius-md`: `0.5rem` (8px)
+- `--radius-sm`: `0.375rem` (6px)
 
 Usage:
 - Buttons: `rounded-lg`
@@ -349,9 +349,15 @@ Pages (app/)
 ### Existing Primitives
 - `components/ui/button.tsx`
 - `components/ui/card.tsx`
+- `components/ui/collapsible-section.tsx`
+- `components/ui/dialog.tsx`
+- `components/ui/dropdown-menu.tsx`
 - `components/ui/input.tsx`
 - `components/ui/label.tsx`
+- `components/ui/popover.tsx`
+- `components/ui/select.tsx`
 - `components/ui/sonner.tsx`
+- `components/ui/status-badge.tsx`
 - `components/ui/toast.tsx`
 
 ### Existing Shared Components

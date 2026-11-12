@@ -19,7 +19,6 @@ However, **production readiness is currently blocked by confirmed defects** that
 2. **No global middleware:** No `middleware.ts` exists. Route protection is implemented per-page/API only. Unauthenticated users can reach protected routes before client-side checks fire.
 3. **Email-confirmation lockout risk:** `config.toml` sets `enable_confirmations = false`, but `app/dashboard/layout.tsx` redirects to `/verify-email` when `email_confirmed_at` is null — users can be permanently locked out of the dashboard.
 4. **No payment gateway integration:** `payment_method`/`payment_status` fields exist and are hardcoded to `'pending'` at checkout. **SSLCommerz (or any gateway) is NOT integrated** — no real payment capture, webhook, or success/failure handling exists.
-5. **Stale documentation:** `ARCHITECTURAL_READINESS_REPORT.md` claims the repository is empty when it is fully built out.
 
 Estimated effort to production readiness: **2–4 weeks** depending on payment gateway scope.
 
@@ -103,7 +102,7 @@ Estimated effort to production readiness: **2–4 weeks** depending on payment g
 
 **NOT READY — BLOCKED.**
 
-- Build/typecheck not run (read-only audit). No `middleware.ts`. Notifications DELETE broken. Email-confirmation lockout risk. No payment gateway. `.env.example` exists but no `.env` verified. Stale `ARCHITECTURAL_READINESS_REPORT.md`. No tests directory found.
+- Build/typecheck not run (read-only audit). No `middleware.ts` (auth/session redirects are handled by root `proxy.ts`). Notifications DELETE broken. Email-confirmation lockout risk. No payment gateway. `.env.example` exists but no `.env` verified. No tests directory found.
 
 ---
 
@@ -134,7 +133,6 @@ Estimated effort to production readiness: **2–4 weeks** depending on payment g
 | Payment gateway (SSLCommerz/other) | **MISSING** | Zero matches; `payment_status` hardcoded `'pending'` |
 | Global middleware | **MISSING** | No `middleware.ts`; per-route protection only |
 | Tests | MISSING | No `__tests__` / `*.test.*` directory found |
-| Docs (ARCHITECTURAL_READINESS_REPORT) | STALE | Claims repo empty; repo is fully built |
 
 ---
 
@@ -206,7 +204,7 @@ Estimated effort to production readiness: **2–4 weeks** depending on payment g
 | P0 — Production unblock | CB-1, CB-2, CB-3, SR-2 (env verification) | 1–2 weeks |
 | P1 — Payments | SSLCommerz integration + webhooks + success/failure | 2–3 weeks |
 | P2 — Reliability | Server-persisted cart, tests, CI, monitoring | 2–3 weeks |
-| P3 — Polish | Email confirmation flow, reset-email verification, docs refresh (`ARCHITECTURAL_READINESS_REPORT.md`) | 1 week |
+| P3 — Polish | Email confirmation flow, reset-email verification, docs refresh | 1 week |
 
 ---
 
@@ -237,5 +235,4 @@ Estimated effort to production readiness: **2–4 weeks** depending on payment g
 - `lib/rate-limit/index.ts` — rate limiting
 - `config/roles.ts` — role hierarchy
 - `.env.example` — env vars (no secrets)
-- `ARCHITECTURAL_READINESS_REPORT.md` — stale doc (claims empty repo)
 - `app/api/tenants/create`, `check-slug`, `[tenantId]/settings` — tenant management

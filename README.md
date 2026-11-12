@@ -1,16 +1,16 @@
 # Storefy
 
-Multi-tenant SaaS platform for small businesses.
+Multi-tenant SaaS platform that gives small businesses their own professional online store — product catalog, orders, customers, reviews, team/invitations, analytics, announcements, notifications, and subscriptions — with super-admin platform management.
 
 ## Tech Stack
 
-- [Next.js 16](https://nextjs.org/)
+- [Next.js 16](https://nextjs.org/) (App Router)
 - [React 19](https://react.dev/)
 - [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS v4](https://tailwindcss.com/)
-- [shadcn/ui](https://ui.shadcn.com/)
-- [Supabase](https://supabase.com/)
-- [PostgreSQL](https://www.postgresql.org/)
+- [shadcn/ui](https://ui.shadcn.com/) + [Radix UI](https://www.radix-ui.com/)
+- [Supabase](https://supabase.com/) — Auth, PostgreSQL, Storage, Row Level Security (RLS)
+- [date-fns](https://date-fns.org/), [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/), [Sonner](https://sonner.emilkowal.ski/), [Lucide React](https://lucide.dev/)
 
 ## Getting Started
 
@@ -19,14 +19,16 @@ Multi-tenant SaaS platform for small businesses.
    npm install
    ```
 
-2. Copy `.env.example` to `.env.local` and fill in your Supabase credentials.
+2. Copy `.env.example` to `.env.local` and fill in your Supabase credentials (URL, anon key, service role key).
 
-3. Run the development server:
+3. Apply the Supabase migrations in `supabase/migrations/` (via Supabase CLI `supabase db push` or the Supabase Dashboard SQL editor).
+
+4. Run the development server:
    ```bash
    npm run dev
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000).
+5. Open [http://localhost:3000](http://localhost:3000).
 
 ## Scripts
 
@@ -38,4 +40,7 @@ Multi-tenant SaaS platform for small businesses.
 ## Architecture
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md).
-# Storefy
+
+## Payment status
+
+Trusted server-side subscription payment creation and Super Admin manual payment verification are implemented. Automated gateway session creation, callback/IPN handling, server-to-server validation, and automated settlement are **not** yet implemented (see `docs/architecture/PAYMENT_SETTLEMENT_ARCHITECTURE.md`).

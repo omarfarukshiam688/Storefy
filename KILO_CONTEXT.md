@@ -4,10 +4,10 @@
 Storefy is a production-oriented multi-tenant e-commerce SaaS platform. It gives small businesses their own professional online store, product management, order management, and basic analytics.
 
 ## Current Stack
-- **Framework**: Next.js 16.2.11 (App Router)
+- **Framework**: Next.js 16.3.6 (App Router)
 - **Runtime**: React 19.2.4
 - **Language**: TypeScript 5.7.3
-- **Styling**: Tailwind CSS v4.3.3 + PostCSS
+- **Styling**: Tailwind CSS v4 + PostCSS
 - **Auth**: Supabase Auth (`@supabase/ssr`, `@supabase/supabase-js`)
 - **Database**: PostgreSQL via Supabase
 - **Icons**: Lucide React
@@ -21,7 +21,7 @@ Storefy is a production-oriented multi-tenant e-commerce SaaS platform. It gives
 - **Server Components** by default; `"use client"` only when browser state/effects are needed.
 - **Supabase SSR** for auth: cookie-based session, no localStorage for auth tokens.
 - **Multi-tenant** via `tenant_id` isolation and RLS.
-- **Module-based** progression: Modules 1-3 complete (tenancy + auth).
+- Application is fully built out (tenant onboarding, catalog, checkout, orders, customers, reviews, team/invitations, analytics, announcements, notifications, subscriptions/payments, super-admin platform).
 
 ## UI Library / Component System
 - **Pattern**: shadcn/ui-inspired primitives in `components/ui/`.
@@ -56,7 +56,7 @@ Storefy is a production-oriented multi-tenant e-commerce SaaS platform. It gives
 - **Primitives**: `components/ui/`
 - **Auth**: `components/auth/`
 - **Admin**: `components/admin/`
-- **Storefront**: `components/storefront/` (empty, future)
+- **Storefront**: `components/storefront/` (tenant-facing storefront sections, cart, checkout)
 - **Shared**: `components/shared/` (empty, future)
 
 ## How Kilo Should Approach Future UI Tasks

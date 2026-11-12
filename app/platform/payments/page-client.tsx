@@ -12,15 +12,17 @@ import { toast } from 'sonner';
 import {
   RefreshCw,
   CreditCard,
-  Building2,
   CheckCircle2,
   XCircle,
   AlertCircle,
   Search,
   Clock,
   ChevronRight,
+  AlertTriangle,
+  ShieldCheck,
 } from 'lucide-react';
 import type { Payment } from '@/types';
+import { humanize, isGatewayPayment } from '@/lib/payments/verification';
 
 interface PaymentWithRelations extends Payment {
   tenant: {
@@ -79,22 +81,116 @@ interface PaymentStatusBadgeProps {
   status: string;
 }
 
+const paymentStatusVariant: Record<string, 'success' | 'warning' | 'error' | 'info' | 'brand' | 'neutral'> = {
+  verification_required: 'warning',
+  pending: 'warning',
+  processing: 'info',
+  completed: 'success',
+  succeeded: 'success',
+  failed: 'error',
+  rejected: 'error',
+  refunded: 'neutral',
+};
+
 function PaymentStatusBadge({ status }: PaymentStatusBadgeProps) {
-  const variantMap: Record<string, 'success' | 'warning' | 'error' | 'info' | 'brand' | 'neutral'> = {
-    verification_required: 'warning',
-    pending: 'warning',
-    completed: 'success',
-    succeeded: 'success',
-    failed: 'error',
-    rejected: 'error',
-    refunded: 'neutral',
-    processing: 'info',
+  const variant = paymentStatusVariant[status] ?? 'neutral';
+  return <StatusBadge variant={variant}>{humanize(status)}</StatusBadge>;
+}
+
+function exceptionReasons(payment: PaymentWithRelations): string[] {
+  const metadata =
+    payment.metadata !== null && typeof payment.metadata === 'object'
+      ? (payment.metadata as Record<string, unknown>)
+      : {};
+  const reasons: string[] = [];
+
+  const gatewayAmount =
+    typeof metadata.gateway_amount === 'number'
+      ? metadata.gateway_amount
+      : typeof metadata.gateway_amount === 'string' && Number.isFinite(Number(metadata.gateway_amount))
+        ? Number(metadata.gateway_amount)
+        : null;
+
+  if (payment.status === 'completed' && reasons.length === 0) {
+    // Only completed payments can be exceptions; other statuses are handled separately.
+    if (
+      gatewayAmount !== null &&
+      payment.expected_amount !== null &&
+      Math.abs(gatewayAmount - payment.expected_amount) >= 0.01
+    ) {
+      reasons.push('Amount mismatch');
+    }
+
+    const duplicate = metadata.duplicate_check;
+    if (typeof duplicate === 'string' && duplicate !== 'none' && duplicate !== 'no_duplicate') {
+      reasons.push('Duplicate transaction');
+    }
+
+    const verificationSource = metadata.verification_source;
+    if (
+      (isGatewayPayment(payment.provider) || typeof metadata.gateway_status === 'string') &&
+      verificationSource !== 'server_callback' &&
+      verificationSource !== 'server_verified'
+    ) {
+      reasons.push('Gateway confirmation not authenticated');
+    }
+  }
+
+  return reasons;
+}
+
+interface PaymentRowState {
+  label: string;
+  description: string;
+  className: string;
+  icon: React.ElementType;
+}
+
+function rowState(payment: PaymentWithRelations): PaymentRowState {
+  const reasons = exceptionReasons(payment);
+
+  if (payment.status === 'verification_required' || payment.status === 'pending' || payment.status === 'processing') {
+    return {
+      label: 'Awaiting Verification',
+      description: 'Automated verification has not produced a final outcome yet.',
+      className: 'border-sky-200 bg-sky-50 text-sky-700',
+      icon: Clock,
+    };
+  }
+
+  if (payment.status === 'failed') {
+    return {
+      label: 'Failed',
+      description: 'The gateway did not complete this payment.',
+      className: 'border-red-200 bg-red-50 text-red-700',
+      icon: XCircle,
+    };
+  }
+
+  if (payment.status === 'refunded') {
+    return {
+      label: 'Refunded',
+      description: 'This payment was refunded.',
+      className: 'border-slate-200 bg-slate-50 text-slate-600',
+      icon: AlertCircle,
+    };
+  }
+
+  if (reasons.length > 0) {
+    return {
+      label: 'Exception',
+      description: reasons.join(' · '),
+      className: 'border-amber-200 bg-amber-50 text-amber-700',
+      icon: AlertTriangle,
+    };
+  }
+
+  return {
+    label: 'Auto-Verified',
+    description: 'All automated verification checks passed.',
+    className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    icon: ShieldCheck,
   };
-
-  const variant = variantMap[status] ?? 'neutral';
-  const displayName = status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-
-  return <StatusBadge variant={variant}>{displayName}</StatusBadge>;
 }
 
 interface PaymentPurposeBadgeProps {
@@ -143,14 +239,19 @@ export default function PaymentsListClient({
     pending: 0,
     approved: 0,
     rejected: 0,
+    refunded: 0,
     total: 0,
+    exceptions: 0,
   });
 
   const fetchPayments = React.useCallback(async () => {
     setLoading(true);
     try {
+      const isExceptionView = statusFilter === 'exceptions';
       const params = new URLSearchParams();
-      params.set('status', statusFilter);
+      if (!isExceptionView) {
+        params.set('status', statusFilter);
+      }
       params.set('purpose', purposeFilter);
       if (searchQuery) params.set('search', searchQuery);
       params.set('page', String(page));
@@ -161,11 +262,14 @@ export default function PaymentsListClient({
         throw new Error('Failed to fetch payments');
       }
       const data = await response.json();
-      setPayments(data.payments || []);
-      setTotal(data.total || 0);
+      const rows: PaymentWithRelations[] = data.payments || [];
+      const filtered = isExceptionView ? rows.filter((row) => exceptionReasons(row).length > 0) : rows;
+
+      setPayments(filtered);
+      setTotal(isExceptionView ? filtered.length : data.total || 0);
       setPage(data.page || page);
       setPageSize(data.pageSize || pageSize);
-      setTotalPages(data.totalPages || 1);
+      setTotalPages(isExceptionView ? 1 : data.totalPages || 1);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to fetch payments');
     } finally {
@@ -175,26 +279,47 @@ export default function PaymentsListClient({
 
   const fetchMetrics = React.useCallback(async () => {
     try {
-      const [pendingRes, approvedRes, rejectedRes, totalRes] = await Promise.all([
+      const [pendingRes, verifiedRes, failedRes, refundedRes, totalRes] = await Promise.all([
         fetch('/api/platform/payments?status=verification_required&pageSize=1'),
         fetch('/api/platform/payments?status=completed&pageSize=1'),
         fetch('/api/platform/payments?status=failed&pageSize=1'),
+        fetch('/api/platform/payments?status=refunded&pageSize=1'),
         fetch('/api/platform/payments?pageSize=1'),
       ]);
 
-      const pendingData = await pendingRes.json();
-      const approvedData = await approvedRes.json();
-      const rejectedData = await rejectedRes.json();
-      const totalData = await totalRes.json();
+      const [pendingData, verifiedData, failedData, refundedData, totalData] = await Promise.all([
+        pendingRes.json(),
+        verifiedRes.json(),
+        failedRes.json(),
+        refundedRes.json(),
+        totalRes.json(),
+      ]);
 
-      setMetrics({
+      setMetrics((current) => ({
+        ...current,
         pending: pendingData.total || 0,
-        approved: approvedData.total || 0,
-        rejected: rejectedData.total || 0,
+        approved: verifiedData.total || 0,
+        rejected: failedData.total || 0,
+        refunded: refundedData.total || 0,
         total: totalData.total || 0,
-      });
+      }));
     } catch {
       // Metrics are non-critical
+    }
+  }, []);
+
+  const fetchExceptionCount = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/platform/payments?status=completed&pageSize=100');
+      if (!response.ok) return;
+      const data = await response.json();
+      const rows: PaymentWithRelations[] = data.payments || [];
+      setMetrics((current) => ({
+        ...current,
+        exceptions: rows.filter((row) => exceptionReasons(row).length > 0).length,
+      }));
+    } catch {
+      // Exception counts are advisory only.
     }
   }, []);
 
@@ -204,15 +329,17 @@ export default function PaymentsListClient({
       if (cancelled) return;
       await fetchPayments();
       await fetchMetrics();
+      await fetchExceptionCount();
     }
     init();
     return () => { cancelled = true; };
-  }, [fetchPayments, fetchMetrics]);
+  }, [fetchPayments, fetchMetrics, fetchExceptionCount]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchPayments().finally(() => setRefreshing(false));
-    fetchMetrics();
+    Promise.allSettled([fetchPayments(), fetchMetrics(), fetchExceptionCount()]).finally(() => {
+      setRefreshing(false);
+    });
     toast.success('Payments refreshed');
   };
 
@@ -257,9 +384,10 @@ export default function PaymentsListClient({
 
   const statusTabs = [
     { key: 'all', label: 'All Payments', count: metrics.total },
-    { key: 'verification_required', label: 'Needs Review', count: metrics.pending },
-    { key: 'completed', label: 'Approved', count: metrics.approved },
-    { key: 'failed', label: 'Rejected', count: metrics.rejected },
+    { key: 'exceptions', label: 'Exceptions', count: metrics.exceptions },
+    { key: 'verification_required', label: 'Awaiting Verification', count: metrics.pending },
+    { key: 'completed', label: 'Verified', count: metrics.approved },
+    { key: 'failed', label: 'Failed', count: metrics.rejected },
   ];
 
   if (loading) {
@@ -274,7 +402,7 @@ export default function PaymentsListClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Page Header */}
       <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1.5">
@@ -282,8 +410,8 @@ export default function PaymentsListClient({
             Payment Verification
           </h1>
           <p className="max-w-md text-sm leading-relaxed text-slate-500">
-            Review and approve or reject subscription payments that require manual verification.
-            All actions are executed through the verified payment approval RPC.
+            Gateway-confirmed payments are verified automatically. Super Admin reviews exceptions,
+            unmatched amounts, and unresolved payments.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -304,40 +432,40 @@ export default function PaymentsListClient({
       {/* Summary Metrics */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <PaymentMetricCard
-          title="Pending Verification"
+          title="Exceptions"
+          value={metrics.exceptions}
+          icon={AlertTriangle}
+          variant="warning"
+        />
+        <PaymentMetricCard
+          title="Awaiting Verification"
           value={metrics.pending}
           icon={Clock}
           variant="warning"
         />
         <PaymentMetricCard
-          title="Approved"
+          title="Auto-Verified"
           value={metrics.approved}
           icon={CheckCircle2}
           variant="success"
         />
         <PaymentMetricCard
-          title="Rejected"
+          title="Failed"
           value={metrics.rejected}
           icon={XCircle}
           variant="error"
         />
-        <PaymentMetricCard
-          title="Total Payments"
-          value={metrics.total}
-          icon={Building2}
-          variant="default"
-        />
       </div>
 
       {/* Payment Management Section */}
-      <section className="space-y-4">
+      <section className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
               Payment Management
             </p>
-            <h2 className="mt-1 text-[18px] font-semibold leading-snug text-slate-900 sm:text-[19px] lg:text-xl">
-              Subscriptions awaiting your review
+            <h2 className="mt-1 text-[19px] font-semibold leading-snug text-slate-900 sm:text-xl lg:text-[22px]">
+              Payments requiring attention
             </h2>
           </div>
         </div>
@@ -412,15 +540,16 @@ export default function PaymentsListClient({
         <Card className="border border-border/60 shadow-sm">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[920px] table-fixed text-sm">
+              <table className="w-full min-w-[1040px] table-fixed text-sm">
                 <colgroup>
-                  <col className="w-[18%]" />
-                  <col className="w-[22%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[19%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[11%]" />
                   <col className="w-[13%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[15%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[8%]" />
+                  <col className="w-[19%]" />
+                  <col className="w-[6%]" />
+                  <col className="w-[5%]" />
                 </colgroup>
                 <thead className="bg-slate-50/50">
                   <tr className="border-b border-border">
@@ -440,6 +569,9 @@ export default function PaymentsListClient({
                       Status
                     </th>
                     <th className="h-11 px-4 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                      Verification State
+                    </th>
+                    <th className="h-11 px-4 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                       Created
                     </th>
                     <th className="h-11 px-4 text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
@@ -450,86 +582,113 @@ export default function PaymentsListClient({
                 <tbody className="divide-y divide-border/50">
                   {payments.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-16 text-center">
+                      <td colSpan={8} className="px-4 py-16 text-center">
                         <div className="flex flex-col items-center justify-center gap-3">
                           <AlertCircle className="h-8 w-8 text-slate-400" />
                           <p className="text-sm font-medium text-slate-900">
-                            {searchQuery ? 'No payments found' : 'No payments to review'}
+                            {searchQuery
+                              ? 'No payments found'
+                              : statusFilter === 'exceptions'
+                                ? 'No exceptions'
+                                : 'No payments to review'}
                           </p>
                           <p className="text-xs text-slate-500">
                             {searchQuery
                               ? 'There are no payments matching your current search.'
-                              : 'All subscription payments have been verified.'}
+                              : statusFilter === 'exceptions'
+                                ? 'Every gateway payment matched its expected amount and transaction checks.'
+                                : 'All subscription payments have been verified.'}
                           </p>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    payments.map((payment) => (
-                      <tr
-                        key={payment.id}
-                        className="transition-colors hover:bg-slate-50/50"
-                      >
-                        <td className="px-4 py-4 align-middle">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-                              <CreditCard className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <span className="block truncate font-medium text-slate-900">
-                                {shortId(payment.id)}
-                              </span>
-                              <p className="truncate text-[10px] font-mono text-slate-500">
-                                {payment.idempotency_key.slice(0, 16)}…
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 align-middle">
-                          <div className="min-w-0">
-                            <span className="block truncate font-medium text-slate-900">
-                              {payment.tenant?.name ?? 'Unknown Tenant'}
-                            </span>
-                            <p className="truncate text-[10px] font-mono text-slate-500">
-                              /{payment.tenant?.slug ?? '-'}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 align-middle">
-                          <PaymentPurposeBadge purpose={payment.purpose} />
-                        </td>
-                        <td className="px-4 py-4 text-right align-middle whitespace-nowrap">
-                          <span className="font-medium text-slate-900">
-                            {Number(payment.amount).toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </span>
-                          <span className="ml-1 text-[10px] text-slate-500">
-                            {payment.currency}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 align-middle">
-                          <PaymentStatusBadge status={payment.status} />
-                        </td>
-                        <td className="px-4 py-4 align-middle whitespace-nowrap text-slate-500">
-                          {new Date(payment.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-4 text-right align-middle">
-                          <Button
-                            asChild
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-3 text-xs"
+                    payments.map((payment) => {
+                        const state = rowState(payment);
+                        const StateIcon = state.icon;
+                        const reasons = exceptionReasons(payment);
+                        return (
+                          <tr
+                            key={payment.id}
+                            className="transition-colors hover:bg-slate-50/50"
                           >
-                            <a href={`/platform/payments/${payment.id}`}>
-                              View <ChevronRight className="ml-1 h-3.5 w-3.5" />
-                            </a>
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                            <td className="px-4 py-4 align-middle">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                                  <CreditCard className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="block truncate font-medium text-slate-900">
+                                    {shortId(payment.id)}
+                                  </span>
+                                  <p className="truncate text-[10px] font-mono text-slate-500">
+                                    {payment.idempotency_key.slice(0, 16)}…
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 align-middle">
+                              <div className="min-w-0">
+                                <span className="block truncate font-medium text-slate-900">
+                                  {payment.tenant?.name ?? 'Unknown Tenant'}
+                                </span>
+                                <p className="truncate text-[10px] font-mono text-slate-500">
+                                  /{payment.tenant?.slug ?? '-'}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 align-middle">
+                              <PaymentPurposeBadge purpose={payment.purpose} />
+                            </td>
+                            <td className="px-4 py-4 text-right align-middle whitespace-nowrap">
+                              <span className="font-medium text-slate-900">
+                                {Number(payment.amount).toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
+                              <span className="ml-1 text-[10px] text-slate-500">
+                                {payment.currency}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 align-middle">
+                              <PaymentStatusBadge status={payment.status} />
+                            </td>
+                            <td className="px-4 py-4 align-middle">
+                              <div className="min-w-0">
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${state.className}`}
+                                  title={state.description}
+                                >
+                                  <StateIcon className="h-3 w-3" aria-hidden="true" />
+                                  {state.label}
+                                </span>
+                                {reasons.length > 0 && (
+                                  <p className="mt-1 truncate text-[10px] text-slate-500">
+                                    {reasons.join(' · ')}
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 align-middle whitespace-nowrap text-slate-500">
+                              {new Date(payment.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-4 text-right align-middle">
+                              <Button
+                                asChild
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-3 text-xs"
+                              >
+                                <a href={`/platform/payments/${payment.id}`}>
+                                  View <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                                </a>
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                 </tbody>
               </table>
             </div>
