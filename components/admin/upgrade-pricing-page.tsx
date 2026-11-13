@@ -3,16 +3,10 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatBDT } from '@/lib/billing/format-currency';
 import type { Plan } from '@/types';
-
-interface UpgradePricingPageProps {
-  plans: Plan[];
-  currentPlanId: string | null;
-}
-
-const PAID_PLAN_NAMES = new Set(['STARTER', 'GROWTH', 'BUSINESS']);
 
 function getPlanFeatures(plan: Plan): string[] {
   const features: string[] = [];
@@ -58,23 +52,66 @@ function getPlanFeatures(plan: Plan): string[] {
   return features;
 }
 
-function formatBDT(amount: number): string {
-  return `৳${amount.toLocaleString('en-US')}`;
+interface UpgradePricingPageProps {
+  plans: Plan[];
+  currentPlanId: string | null;
 }
 
 export function UpgradePricingPage({ plans, currentPlanId }: UpgradePricingPageProps) {
-  const paidPlans = plans
-    .filter((plan) => plan.is_active && PAID_PLAN_NAMES.has(plan.name))
+  const activePaidPlans = plans
+    .filter((plan) => plan.is_active && plan.price_monthly > 0)
     .sort((a, b) => a.price_monthly - b.price_monthly);
 
   const currentPlan = plans.find((p) => p.id === currentPlanId) ?? null;
 
-  const handlePlanClick = (plan: Plan) => {
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = React.useState(false);
+  const [selectedPlan, setSelectedPlan] = React.useState<Plan | null>(null);
+  const [isCreating, setIsCreating] = React.useState(false);
+
+  const handleUpgradeClick = (plan: Plan) => {
+    if (!currentPlan) return;
     if (plan.id === currentPlanId) {
       toast.info('This is your current plan');
       return;
     }
-    toast.info('Payment integration coming soon');
+    if (plan.price_monthly <= currentPlan.price_monthly) {
+      toast.info('Use the billing page to manage downgrades.');
+      return;
+    }
+
+    setSelectedPlan(plan);
+    setUpgradeDialogOpen(true);
+  };
+
+  const handleConfirmUpgrade = async () => {
+    if (!selectedPlan) return;
+    setIsCreating(true);
+
+    try {
+      const res = await fetch('/api/subscriptions/payments/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'upgrade',
+          targetPlanId: selectedPlan.id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to create upgrade payment');
+        return;
+      }
+
+      setUpgradeDialogOpen(false);
+      setSelectedPlan(null);
+      toast.success(data.message || 'Upgrade payment created. Awaiting verification.');
+    } catch {
+      toast.error('Unexpected error creating upgrade payment');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const getPlanState = (plan: Plan): 'current' | 'upgrade' | 'downgrade' | 'available' => {
@@ -89,51 +126,44 @@ export function UpgradePricingPage({ plans, currentPlanId }: UpgradePricingPageP
     <div className="mx-auto max-w-6xl space-y-8">
       <div className="text-center">
         <h1 className="text-3xl font-black tracking-[-0.07em] text-slate-900 sm:text-4xl">
-          Upgrade your plan
+          Choose your plan
         </h1>
         <p className="mt-3 text-base text-slate-600">
           {currentPlan
-            ? `You are currently on the ${currentPlan.name} plan. Choose a plan that fits your business.`
-            : 'Choose the perfect plan for your business.'}
+            ? `You are currently on the ${currentPlan.name} plan. Select a higher plan to upgrade.`
+            : 'Select a plan to start your subscription.'}
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-        {paidPlans.map((plan) => {
+        {activePaidPlans.map((plan) => {
           const state = getPlanState(plan);
           const isCurrent = state === 'current';
-          const isMostPopular = plan.name === 'GROWTH';
-          const monthlyPrice = plan.price_monthly;
+          const isUpgrade = state === 'upgrade';
+          const monthlyPrice = Number(plan.price_monthly);
           const features = getPlanFeatures(plan);
 
           return (
             <div
               key={plan.id}
               className={cn(
-                'relative flex flex-col rounded-2xl bg-white/80 p-10 shadow-[0_18px_45px_-30px_rgba(76,29,149,0.35)] transition-all hover:shadow-[0_25px_60px_-35px_rgba(76,29,149,0.45)]',
-                isMostPopular
-                  ? 'border-2 border-violet-500 p-12 shadow-[0_20px_60px_-30px_rgba(76,29,149,0.45)]'
-                  : 'border border-violet-100'
+                'relative flex flex-col rounded-2xl border p-8 transition-all hover:shadow-md',
+                isCurrent ? 'border-violet-200/60 bg-violet-50/40' : 'border-border bg-white'
               )}
             >
-              {(isCurrent || isMostPopular) && (
+              {isCurrent && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  {isCurrent && (
-                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
-                      Current Plan
-                    </span>
-                  )}
-                  {isMostPopular && !isCurrent && (
-                    <span className="rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold text-white">
-                      Most Popular
-                    </span>
-                  )}
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                    Current Plan
+                  </span>
                 </div>
               )}
 
               <div className="flex-1">
                 <div className="text-center">
-                  <h3 className="text-lg font-bold tracking-tight text-slate-900">{plan.name}</h3>
+                  <h3 className="text-lg font-bold tracking-tight text-slate-900">
+                    {plan.name}
+                  </h3>
                   <p className="mt-1 text-sm text-slate-500">{plan.description}</p>
                 </div>
 
@@ -146,7 +176,7 @@ export function UpgradePricingPage({ plans, currentPlanId }: UpgradePricingPageP
                   </div>
                 </div>
 
-                <ul className="mt-10 space-y-4">
+                <ul className="mt-8 space-y-3">
                   {features.map((feature, index) => (
                     <li key={index} className="flex items-start gap-2.5 text-sm text-slate-600">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" aria-hidden="true" />
@@ -156,25 +186,27 @@ export function UpgradePricingPage({ plans, currentPlanId }: UpgradePricingPageP
                 </ul>
               </div>
 
-              <div className="mt-12">
+              <div className="mt-8">
                 {isCurrent ? (
                   <Button disabled className="w-full" variant="secondary">
                     Current Plan
                   </Button>
-                ) : state === 'upgrade' ? (
+                ) : isUpgrade ? (
                   <Button
-                    onClick={() => handlePlanClick(plan)}
-                    className={cn('w-full', isMostPopular ? 'bg-violet-700 text-white hover:bg-violet-800' : 'bg-violet-600 text-white hover:bg-violet-700')}
+                    onClick={() => handleUpgradeClick(plan)}
+                    disabled={isCreating}
+                    className="w-full bg-violet-600 text-white hover:bg-violet-700"
                   >
-                    Choose {plan.name}
+                    {isCreating ? 'Creating payment…' : `Upgrade to ${plan.name}`}
                   </Button>
                 ) : (
                   <Button
                     variant="outline"
-                    onClick={() => handlePlanClick(plan)}
-                    className="w-full"
+                    onClick={() => handleUpgradeClick(plan)}
+                    disabled
+                    className="w-full opacity-50 pointer-events-none"
                   >
-                    Downgrade to {plan.name}
+                    Downgrade scheduled next cycle
                   </Button>
                 )}
               </div>
@@ -184,8 +216,76 @@ export function UpgradePricingPage({ plans, currentPlanId }: UpgradePricingPageP
       </div>
 
       <div className="rounded-xl border border-violet-100 bg-violet-50/60 p-4 text-center text-sm text-slate-600">
-        Payment integration coming soon. You will not be charged during this preview.
+        All plans are billed monthly in BDT. Upgrades require payment verification before activation.
+        Downgrades take effect on your next billing date.
       </div>
+
+      {upgradeDialogOpen && selectedPlan && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="upgrade-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center"
+        >
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            role="button"
+            tabIndex={0}
+            onClick={() => setUpgradeDialogOpen(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setUpgradeDialogOpen(false);
+            }}
+          />
+          <div className="relative w-full max-w-md p-4">
+            <div className="bg-white rounded-2xl border border-violet-100 p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 id="upgrade-dialog-title" className="text-lg font-bold text-slate-900">
+                  Confirm Upgrade
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setUpgradeDialogOpen(false)}
+                  aria-label="Close dialog"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              <p className="text-sm text-slate-600 mb-4">
+                Upgrade from <strong>{currentPlan?.name}</strong> to{' '}
+                <strong>{selectedPlan.name}</strong>. The new plan activates after your payment is verified.
+              </p>
+              <div className="mb-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                  Prorated amount
+                </p>
+                <p className="mt-1 text-lg font-bold text-slate-900">
+                  Calculated server-side after confirmation
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setUpgradeDialogOpen(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleConfirmUpgrade}
+                  disabled={isCreating}
+                  className="flex-1 bg-violet-600 text-white hover:bg-violet-700"
+                >
+                  {isCreating ? 'Creating…' : 'Confirm Upgrade'}
+                </Button>
+              </div>
+              <p className="mt-3 text-xs text-slate-500">
+                Payment will be reviewed by Storefy. No automatic card charge.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

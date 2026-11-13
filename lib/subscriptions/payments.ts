@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { createServiceClient } from '@/lib/supabase/admin';
-import { getTenantContext, requireSuperAdmin } from '@/lib/auth/tenant';
+import { getBillingTenantContext, getTenantContext, requireSuperAdmin } from '@/lib/auth/tenant';
 import { AuthError, ForbiddenError } from '@/lib/auth/errors';
 import {
   computeRenewalPeriod,
@@ -21,7 +21,7 @@ export class PaymentRequestError extends Error {
   }
 }
 
-export type PaymentType = 'upgrade' | 'renewal';
+export type PaymentType = 'upgrade' | 'renewal' | 'downgrade';
 
 export interface CreatePaymentInput {
   type: PaymentType;
@@ -139,6 +139,53 @@ function toCreatedPayment(row: unknown, idempotent: boolean): CreatedPayment {
     renewalPeriodEnd: (payment.renewal_period_end as string) ?? null,
     idempotent,
   };
+}
+
+/**
+ * Verify that a recovered downgrade payment correlates to the current downgrade request.
+ * Checks: exact subscription ID, downgrade purpose, exact target plan, exact idempotency key,
+ * matching downgrade request ID in metadata, and eligible status.
+ * 
+ * CRITICAL: When expectedDowngradeRequestId is NULL (no scheduled downgrade),
+ * NO existing payment should be considered a match - not even completed ones.
+ * This prevents reusing a completed payment from a previous, unrelated downgrade operation.
+ */
+async function verifyDowngradePaymentCorrelation(
+  supabase: ReturnType<typeof createServiceClient>,
+  payment: Record<string, unknown>,
+  expectedSubscriptionId: string,
+  expectedTargetPlanId: string,
+  expectedIdempotencyKey: string,
+  expectedDowngradeRequestId?: string | null
+): Promise<boolean> {
+  if (!payment) return false;
+
+  // Exact subscription ID
+  if (payment.subscription_id !== expectedSubscriptionId) return false;
+
+  // Downgrade purpose
+  if (payment.purpose !== 'subscription_downgrade') return false;
+
+  // Exact target plan
+  if (payment.target_plan_id !== expectedTargetPlanId) return false;
+
+  // Exact idempotency key
+  if (payment.idempotency_key !== expectedIdempotencyKey) return false;
+
+  // Verify downgrade request ID matches subscription's current request ID
+  // If expectedDowngradeRequestId is NULL, no payment should match (prevents reuse of old completed payments)
+  if (!expectedDowngradeRequestId) {
+    return false;
+  }
+  
+  const paymentRequestId = (payment.metadata as Record<string, unknown>)?.downgrade_request_id as string | undefined;
+  if (!paymentRequestId || paymentRequestId !== expectedDowngradeRequestId) return false;
+
+  // Eligible status for idempotent reuse
+  const status = payment.status as string;
+  if (status !== 'verification_required' && status !== 'completed') return false;
+
+  return true;
 }
 
 /**
@@ -421,6 +468,378 @@ export async function createRenewalPayment(): Promise<CreatedPayment> {
   }
 
   return toCreatedPayment(payment, false);
+}
+
+/**
+ * Create a trusted subscription renewal payment for a suspended tenant.
+ *
+ * Used when tenant.is_active === false due to subscription-related
+ * suspension (expired/suspended/past_due). Authorization uses
+ * getBillingTenantContext() which does NOT call assertTenantActive(),
+ * but still verifies authentication, tenant membership, and role.
+ *
+ * Only tenant_admin may call this. Only renewal is permitted — upgrades
+ * are not available to suspended tenants.
+ */
+export async function createRenewalPaymentForSuspendedTenant(): Promise<CreatedPayment> {
+  const ctx = await getBillingTenantContext();
+
+  if (!ctx || !ctx.activeTenant) {
+    throw new ForbiddenError('No tenant context');
+  }
+
+  if (ctx.role !== 'tenant_admin') {
+    throw new ForbiddenError('Tenant admin access required');
+  }
+
+  const tenantId = ctx.activeTenant.id;
+  const supabase = createServiceClient();
+
+  const allowedStatuses = ['active', 'trialing', 'past_due', 'canceled', 'expired', 'suspended'];
+
+  const { data: subscription, error } = await supabase
+    .from('subscriptions')
+    .select('*, plan:plans(*)')
+    .eq('tenant_id', tenantId)
+    .in('status', allowedStatuses)
+    .order('current_period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new PaymentRequestError(500, 'DB_ERROR', 'Failed to load subscription');
+  }
+
+  if (!subscription) {
+    throw new PaymentRequestError(
+      404,
+      'SUBSCRIPTION_NOT_FOUND',
+      'No renewable subscription found for this tenant'
+    );
+  }
+
+  const currentPlan = subscription.plan ?? (await fetchPlan(supabase, subscription.plan_id));
+  if (!currentPlan) {
+    throw new PaymentRequestError(404, 'PLAN_NOT_FOUND', 'Current plan not found');
+  }
+
+  const now = new Date();
+  const period = computeRenewalPeriod({
+    currentPeriodEnd: subscription.current_period_end,
+    now,
+  });
+
+  const idempotencyKey = `sub_renewal:${subscription.id}:${toISO(period.renewalPeriodEnd)}`;
+
+  const { data: existing } = await findExistingPaymentByIdempotencyKey(supabase, idempotencyKey);
+  if (existing) {
+    return toCreatedPayment(existing, true);
+  }
+
+  const fullAmount = Math.round(Number(currentPlan.price_monthly) * 100) / 100;
+
+  const insertPayload = {
+    tenant_id: tenantId,
+    subscription_id: subscription.id,
+    purpose: 'subscription_renewal' as const,
+    provider: PAYMENT_PROVIDER,
+    amount: fullAmount,
+    currency: PAYMENT_CURRENCY,
+    status: PAYMENT_STATUS,
+    idempotency_key: idempotencyKey,
+    target_plan_id: null,
+    expected_amount: fullAmount,
+    renewal_period_start: toISO(period.renewalPeriodStart),
+    renewal_period_end: toISO(period.renewalPeriodEnd),
+    metadata: {
+      source: 'subscription_renewal_v2_2_suspended',
+      plan_id: currentPlan.id,
+      plan_price: fullAmount,
+      is_catch_up: period.isCatchUp,
+      calculated_at: now.toISOString(),
+    },
+  };
+
+  const { data: payment, error: insertError } = await supabase
+    .from('payments')
+    .insert(insertPayload)
+    .select()
+    .single();
+
+  if (insertError) {
+    if (insertError.code === '23505') {
+      const { data: recovered } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('subscription_id', subscription.id)
+        .eq('purpose', 'subscription_renewal')
+        .eq('renewal_period_end', toISO(period.renewalPeriodEnd))
+        .maybeSingle();
+      if (recovered) {
+        return toCreatedPayment(recovered, true);
+      }
+    }
+    throw new PaymentRequestError(500, 'DB_ERROR', 'Failed to create payment');
+  }
+
+  return toCreatedPayment(payment, false);
+}
+
+/**
+ * Create a trusted subscription downgrade payment.
+ *
+ * Business rules:
+ *  - Only tenant_admin may request.
+ *  - Target plan must exist, be active, and be lower-priced than the current plan.
+ *  - No immediate payment collection; the downgrade takes effect at the next billing date.
+ *  - A verification_required payment is created for audit/tracking purposes.
+ *  - The scheduled plan change is stored on the subscription
+ *    (scheduled_plan_id / scheduled_plan_change_at) and applied later by
+ *    applyScheduledDowngrades() (to be run via cron or scheduled worker).
+ *  - Idempotent per subscription + target plan + downgrade request.
+ */
+export async function createDowngradePayment(input: CreatePaymentInput): Promise<CreatedPayment> {
+  const { targetPlanId } = input;
+
+  if (!targetPlanId || typeof targetPlanId !== 'string') {
+    throw new PaymentRequestError(400, 'VALIDATION_ERROR', 'targetPlanId is required');
+  }
+
+  const { tenantId } = await authorizeTenant();
+  const supabase = createServiceClient();
+
+  const subscription = await fetchSubscription(supabase, tenantId);
+
+  if (subscription.status !== 'active') {
+    throw new PaymentRequestError(
+      422,
+      'INVALID_SUBSCRIPTION_STATE',
+      `Subscription cannot be downgraded from status: ${subscription.status}`
+    );
+  }
+
+  const currentPlan = subscription.plan ?? (await fetchPlan(supabase, subscription.plan_id));
+  if (!currentPlan.is_active) {
+    throw new PaymentRequestError(422, 'CURRENT_PLAN_INACTIVE', 'Current plan is not active');
+  }
+
+  const targetPlan = await fetchPlan(supabase, targetPlanId);
+
+  if (targetPlan.id === currentPlan.id) {
+    throw new PaymentRequestError(400, 'SAME_PLAN', 'Already subscribed to the target plan');
+  }
+
+  if (targetPlan.is_active !== true) {
+    throw new PaymentRequestError(422, 'TARGET_PLAN_INACTIVE', 'Target plan is not active');
+  }
+
+  if (Number(targetPlan.price_monthly) >= Number(currentPlan.price_monthly)) {
+    throw new PaymentRequestError(
+      422,
+      'INVALID_DOWNGRADE_TRANSITION',
+      'Downgrade target must have a lower monthly price than the current plan'
+    );
+  }
+
+  // Idempotency: check for existing downgrade payment for the CURRENT scheduled request.
+  // The subscription's downgrade_request_id uniquely identifies the current downgrade operation.
+  // A completed payment from a PREVIOUS downgrade to the same target plan MUST NOT be reused.
+  const currentRequestId = subscription.downgrade_request_id;
+
+  let idempotencyKey: string;
+  let existing: Awaited<ReturnType<typeof findExistingPaymentByIdempotencyKey>>['data'] | null = null;
+
+  if (currentRequestId) {
+    // A downgrade is already scheduled for this subscription.
+    // Look up the payment by the request-specific idempotency key.
+    // Format: sub_downgrade:{subscription_id}:{targetPlanId}:req:{requestId}
+    idempotencyKey = `sub_downgrade:${subscription.id}:${targetPlanId}:req:${currentRequestId}`;
+    const { data } = await findExistingPaymentByIdempotencyKey(supabase, idempotencyKey);
+    existing = data;
+  } else {
+    // No scheduled downgrade exists. This is a NEW downgrade request.
+    // Use a deterministic base key that the RPC will convert to include the generated request_id.
+    // Format: sub_downgrade:{subscription_id}:{targetPlanId}:new
+    // The RPC replaces ':new' with ':req:{generated_request_id}' for the payment.
+    idempotencyKey = `sub_downgrade:${subscription.id}:${targetPlanId}:new`;
+    // existing remains null - do NOT look up by legacy key
+  }
+
+  if (existing) {
+    const existingStatus = existing.status as string;
+    if (existingStatus === 'verification_required' || existingStatus === 'completed') {
+      // Verify the existing payment correlates to the current downgrade request
+      if (await verifyDowngradePaymentCorrelation(supabase, existing, subscription.id, targetPlanId, idempotencyKey, currentRequestId)) {
+        return toCreatedPayment(existing, true);
+      }
+      // If verification fails, fall through to create a new payment
+    }
+    // If existing payment failed or verification failed, do not retry with a new key.
+    // A failed payment for a scheduled downgrade indicates an inconsistent state:
+    // rejection via approve_or_reject_payment() clears the schedule.
+    // If a schedule exists but its payment failed without rejection, report a conflict.
+    throw new PaymentRequestError(
+      409,
+      'INCONSISTENT_SCHEDULE_STATE',
+      'A scheduled downgrade exists but its payment is in an unexpected state. Contact support or wait for the schedule to be cleared.'
+    );
+  }
+
+  // No existing payment for the current scheduled request. Use the idempotency key as-is.
+  const finalIdempotencyKey = idempotencyKey;
+
+  // Atomically create the downgrade payment via SECURITY DEFINER RPC.
+  // The RPC performs subscription schedule update + payment insertion
+  // inside a single database transaction.
+  const { data, error } = await supabase.rpc('create_subscription_downgrade_payment', {
+    p_subscription_id: subscription.id,
+    p_target_plan_id: targetPlanId,
+    p_amount: 0,
+    p_expected_amount: null,
+    p_currency: PAYMENT_CURRENCY,
+    p_idempotency_key: finalIdempotencyKey,
+    p_metadata: {
+      source: 'subscription_downgrade_v2_2',
+      current_plan_id: currentPlan.id,
+      target_plan_id: targetPlan.id,
+      effective_at: new Date(subscription.current_period_end).toISOString(),
+      calculated_at: new Date().toISOString(),
+    },
+  });
+
+  if (error) {
+    throw new PaymentRequestError(500, 'DB_ERROR', `Failed to create downgrade payment: ${error.message}`);
+  }
+
+  if (!data || !data.success) {
+    const errMsg = (data as Record<string, unknown>)?.error;
+    const errCode = (data as Record<string, unknown>)?.error_code;
+
+    if (errCode === 'IDEMPOTENCY_CONFLICT') {
+      // Concurrent request created the payment; recover it using the request_id from the response
+      // or by fetching the current subscription state
+      const { data: currentSub } = await supabase
+        .from('subscriptions')
+        .select('downgrade_request_id')
+        .eq('id', subscription.id)
+        .single();
+      const currentRequestIdForRecovery = currentSub?.downgrade_request_id ?? null;
+
+      // First try the key with the actual request_id (what the RPC uses for the payment)
+      if (currentRequestIdForRecovery) {
+        const requestSpecificKey = `sub_downgrade:${subscription.id}:${targetPlanId}:req:${currentRequestIdForRecovery}`;
+        const { data: recovered } = await findExistingPaymentByIdempotencyKey(supabase, requestSpecificKey);
+        if (recovered && await verifyDowngradePaymentCorrelation(supabase, recovered, subscription.id, targetPlanId, requestSpecificKey, currentRequestIdForRecovery)) {
+          return toCreatedPayment(recovered, true);
+        }
+      }
+
+      // Fallback: try the base key (might match if RPC hasn't converted yet, unlikely)
+      const { data: recoveredBase } = await findExistingPaymentByIdempotencyKey(supabase, `sub_downgrade:${subscription.id}:${targetPlanId}:new`);
+      if (recoveredBase && await verifyDowngradePaymentCorrelation(supabase, recoveredBase, subscription.id, targetPlanId, `sub_downgrade:${subscription.id}:${targetPlanId}:new`, currentRequestIdForRecovery)) {
+        return toCreatedPayment(recoveredBase, true);
+      }
+    }
+
+    if (errCode === 'PLAN_CHANGE_ALREADY_SCHEDULED') {
+      // A concurrent request won the scheduled-plan slot. If it was for the same
+      // plan with a pending payment, return it idempotently.
+      const { data: reloaded } = await supabase
+        .from('subscriptions')
+        .select('scheduled_plan_id, downgrade_request_id')
+        .eq('id', subscription.id)
+        .single();
+
+      if (reloaded?.scheduled_plan_id === targetPlanId && reloaded.downgrade_request_id) {
+        // Look up by the request-specific key for the current scheduled request
+        const requestSpecificKey = `sub_downgrade:${subscription.id}:${targetPlanId}:req:${reloaded.downgrade_request_id}`;
+        const { data: existingPayment } = await findExistingPaymentByIdempotencyKey(supabase, requestSpecificKey);
+        if (existingPayment && existingPayment.status === 'verification_required') {
+          // Verify the payment correlates to the current downgrade request
+          const paymentRequestId = existingPayment.metadata?.downgrade_request_id;
+          if (paymentRequestId && reloaded.downgrade_request_id === paymentRequestId) {
+            return toCreatedPayment(existingPayment, true);
+          }
+        }
+      }
+
+      throw new PaymentRequestError(
+        409,
+        'PLAN_CHANGE_ALREADY_SCHEDULED',
+        'A plan change is already scheduled for this subscription. Resolve the existing scheduled change before requesting another.'
+      );
+    }
+
+    throw new PaymentRequestError(422, typeof errCode === 'string' ? errCode : 'DB_ERROR', typeof errMsg === 'string' ? errMsg : 'Failed to create downgrade payment');
+  }
+
+  // Map RPC response fields to CreatedPayment shape.
+  // The RPC returns payment_id; toCreatedPayment expects id.
+  const rpcData = data as Record<string, unknown>;
+  const paymentRow = {
+    id: (rpcData.payment_id ?? rpcData.id) as string,
+    status: rpcData.status as string,
+    purpose: rpcData.purpose as string,
+    amount: rpcData.amount as number,
+    expected_amount: rpcData.expected_amount as number | null,
+    currency: rpcData.currency as string,
+    target_plan_id: rpcData.target_plan_id as string | null,
+  };
+
+  return toCreatedPayment(paymentRow, false);
+}
+
+/**
+ * Apply all scheduled downgrades whose effective date has passed.
+ *
+ * Delegates to the public.apply_subscription_downgrades() SECURITY DEFINER
+ * RPC, which performs the complete operation inside a single database
+ * transaction with row locking (FOR UPDATE SKIP LOCKED) for concurrent-worker
+ * safety. Restricted to service_role only; not exposed via any tenant-facing
+ * API.
+ *
+ * Idempotent: each subscription is updated at most once per scheduled change.
+ * Invalid targets (deleted/inactive plan, ineligible subscription) are
+ * recorded durably in public.subscription_change_audit without failing the
+ * entire batch.
+ *
+ * Returns the number applied and any errors encountered.
+ */
+export async function applyScheduledDowngrades(): Promise<{ applied: number; errors: string[] }> {
+  const supabase = createServiceClient();
+
+  const { data, error } = await supabase.rpc('apply_subscription_downgrades');
+
+  if (error) {
+    return { applied: 0, errors: [`RPC error: ${error.message}`] };
+  }
+
+  if (!data || !data.success) {
+    const rawErr = (data as Record<string, unknown>)?.error;
+    return {
+      applied: 0,
+      errors: [typeof rawErr === 'string' ? rawErr : String(rawErr ?? 'Downgrade execution returned unsuccessful')],
+    };
+  }
+
+  const applied = Number((data as Record<string, unknown>).applied ?? 0);
+  const errors: string[] = [];
+  const rawErrors = (data as Record<string, unknown>).errors;
+
+  if (Array.isArray(rawErrors)) {
+    for (const err of rawErrors as unknown[]) {
+      if (err && typeof err === 'object' && 'error_code' in err && 'error_message' in err) {
+        const e = err as { error_code: string; error_message: string };
+        errors.push(`[${e.error_code}] ${e.error_message}`);
+      } else if (typeof err === 'string') {
+        errors.push(err);
+      } else {
+        errors.push(String(err));
+      }
+    }
+  }
+
+  return { applied, errors };
 }
 
 /**

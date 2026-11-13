@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createRenewalPayment, handlePaymentError } from '@/lib/subscriptions/payments';
+import {
+  createRenewalPayment,
+  createRenewalPaymentForSuspendedTenant,
+  handlePaymentError,
+} from '@/lib/subscriptions/payments';
 
 const renewalRequestSchema = z.object({
   type: z.literal('renewal'),
@@ -18,7 +22,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await createRenewalPayment();
+    let result;
+    try {
+      result = await createRenewalPayment();
+    } catch {
+      // If the normal path fails because the tenant is suspended
+      // (tenant.is_active === false), fall back to the suspended-tenant
+      // renewal path which uses getBillingTenantContext() instead of
+      // assertTenantActive().
+      result = await createRenewalPaymentForSuspendedTenant();
+    }
 
     return NextResponse.json(
       {

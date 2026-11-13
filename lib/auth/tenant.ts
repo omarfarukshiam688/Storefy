@@ -143,6 +143,94 @@ export async function getTenantContext(): Promise<TenantContext> {
   };
 }
 
+export async function getBillingTenantContext(): Promise<TenantContext | null> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return null;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError || !profile) {
+    return null;
+  }
+
+  let tenantId = profile.default_tenant_id;
+
+  if (!tenantId) {
+    const { data: fallbackMembership } = await supabase
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    tenantId = fallbackMembership?.tenant_id ?? null;
+  }
+
+  if (!tenantId) {
+    return null;
+  }
+
+  const { data: membership } = await supabase
+    .from("tenant_members")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("*")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  if (!tenant || !membership) {
+    return null;
+  }
+
+  // Billing context intentionally does NOT call assertTenantActive().
+  // It returns the tenant even when is_active === false so that
+  // subscription-suspended tenants can access billing for renewal.
+  // Callers must independently verify subscription-related suspension
+  // state before granting billing access; administrative deactivation
+  // (tenant.is_active === false with an active subscription) must not
+  // qualify for this exception.
+  return {
+    profile,
+    activeTenant: tenant,
+    membership,
+    role: membership.role as "tenant_admin" | "tenant_staff",
+  };
+}
+
+export function isSubscriptionSuspended(
+  tenant: { suspension_reason: string | null } | null | undefined
+): boolean {
+  // Only tenants explicitly marked as subscription-suspended qualify for the
+  // billing exception. Administrative deactivation (suspension_reason =
+  // 'administrative') must not grant billing access, regardless of the
+  // subscription status. Ambiguous historical records without an explicit
+  // reason fail closed — they do not receive the exception.
+  if (!tenant || tenant.suspension_reason !== 'subscription_expiry') {
+    return false;
+  }
+  return true;
+}
+
 export async function requireTenantMembership(tenantId: string): Promise<TenantMember> {
   const supabase = await createClient();
 

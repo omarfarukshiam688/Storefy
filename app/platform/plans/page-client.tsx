@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Package, DollarSign, Users, HardDrive } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { formatBDT } from '@/lib/billing/format-currency';
 
 interface PlanRow {
   id: string;
@@ -34,6 +35,8 @@ function formatBytes(bytes: number): string {
 }
 
 export function PlatformPlansClient({ initialPlans }: PlatformPlansClientProps) {
+  const activePlans = initialPlans.filter((plan) => plan.is_active);
+
   return (
     <div className="space-y-6">
       <div>
@@ -44,12 +47,12 @@ export function PlatformPlansClient({ initialPlans }: PlatformPlansClientProps) 
           Subscription Plans
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          {initialPlans.length} plan{initialPlans.length !== 1 ? 's' : ''} available
+          {activePlans.length} active plan{activePlans.length !== 1 ? 's' : ''} ({initialPlans.length} total)
         </p>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {initialPlans.map((plan) => (
+        {activePlans.map((plan) => (
           <div
             key={plan.id}
             className="flex flex-col rounded-2xl border border-violet-100 bg-white/80 p-6 shadow-[0_18px_45px_-30px_rgba(76,29,149,0.35)]"
@@ -73,8 +76,8 @@ export function PlatformPlansClient({ initialPlans }: PlatformPlansClientProps) 
 
             <div className="mt-6">
               <p className="text-3xl font-black tracking-tight text-slate-900">
-                ${(plan.price_monthly / 100).toFixed(2)}
-                <span className="text-sm font-medium text-slate-500">/mo</span>
+                {formatBDT(plan.price_monthly)}
+                <span className="text-sm font-medium text-slate-500">/month</span>
               </p>
             </div>
 
@@ -142,6 +145,11 @@ export function PlatformPlansClient({ initialPlans }: PlatformPlansClientProps) 
             </div>
           </div>
         ))}
+        {activePlans.length === 0 && (
+          <div className="col-span-3 text-center py-12">
+            <p className="text-sm text-slate-500">No active plans configured.</p>
+          </div>
+        )}
       </div>
     </div>
   );

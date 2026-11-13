@@ -24,6 +24,7 @@ export interface Tenant {
   settings: Record<string, unknown>;
   plan_id: string;
   is_active: boolean;
+  suspension_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -86,6 +87,7 @@ export interface Subscription {
   ended_at: string | null;
   scheduled_plan_id: string | null;
   scheduled_plan_change_at: string | null;
+  downgrade_request_id: string | null;
   created_at: string;
   updated_at: string;
 }

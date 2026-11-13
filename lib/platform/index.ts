@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { createClient } from '@/lib/supabase/server';
 import { getBytesFromStorage } from '@/lib/plans/usage';
 import type { Tenant, Plan } from '@/types';
@@ -501,11 +503,114 @@ export async function suspendTenant(tenantId: string): Promise<void> {
 
   const { error } = await supabase
     .from('tenants')
-    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .update({ is_active: false, suspension_reason: 'administrative', updated_at: new Date().toISOString() })
     .eq('id', tenantId);
 
   if (error) {
     throw new Error(`Failed to suspend tenant: ${error.message}`);
+  }
+}
+
+/**
+ * Suspend a tenant due to subscription expiry (non-payment).
+ *
+ * This is the ONLY path that sets suspension_reason = 'subscription_expiry'.
+ * It is intended to be called exclusively by trusted server-side subscription
+ * lifecycle logic (e.g., after a downgrade/renewal payment has been rejected
+ * or after the grace period has elapsed without payment). It is NOT exposed
+ * through any tenant-facing or Super Admin API endpoint.
+ *
+ * Administrative deactivation must use suspendTenant() instead, which always
+ * sets suspension_reason = 'administrative' and therefore does NOT grant
+ * Billing/reactivation access.
+ */
+export async function suspendTenantForSubscriptionExpiry(tenantId: string): Promise<void> {
+  const supabase = await createClient();
+
+  // Fetch the tenant to check current suspension state
+  const { data: tenant, error: tenantError } = await supabase
+    .from('tenants')
+    .select('id, is_active, suspension_reason')
+    .eq('id', tenantId)
+    .maybeSingle();
+
+  if (tenantError || !tenant) {
+    throw new Error(`Tenant not found: ${tenantId}`);
+  }
+
+  // Do not override an administrative suspension
+  if (tenant.suspension_reason === 'administrative') {
+    throw new Error(`Cannot override administrative suspension for tenant: ${tenantId}`);
+  }
+
+  // Fail closed: inactive tenant with NULL or unknown suspension_reason requires manual review
+  if (tenant.is_active === false && tenant.suspension_reason === null) {
+    throw new Error(
+      `Cannot suspend tenant ${tenantId}: inactive tenant with unknown suspension_reason requires manual review`
+    );
+  }
+
+  // Fail closed: unknown suspension_reason requires manual review
+  if (tenant.suspension_reason !== null && tenant.suspension_reason !== 'subscription_expiry') {
+    throw new Error(
+      `Cannot suspend tenant ${tenantId}: unknown suspension_reason '${tenant.suspension_reason}' requires manual review`
+    );
+  }
+
+  // First check: does the tenant have a current (non-expired, non-canceled) subscription?
+  // A tenant with an active subscription should not be suspended for expiry,
+  // even if they also have historical expired subscriptions.
+  const { data: currentSubscriptions, error: currentError } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .in('status', ['trialing', 'active', 'past_due', 'suspended']);
+
+  if (currentError) {
+    throw new Error(`Failed to fetch current subscription for tenant: ${tenantId}`);
+  }
+
+  if (currentSubscriptions && currentSubscriptions.length > 0) {
+    throw new Error(
+      `Cannot suspend tenant ${tenantId}: tenant has a current subscription`
+    );
+  }
+
+  // Find expired subscriptions whose grace period has fully elapsed.
+  // status = 'expired' alone is not sufficient: we independently verify
+  // grace_period_end <= now() to prevent suspending during the grace period.
+  const now = new Date().toISOString();
+  const { data: subscriptions, error: subscriptionError } = await supabase
+    .from('subscriptions')
+    .select('id, status, current_period_end, grace_period_end, trial_end')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'expired')
+    .not('grace_period_end', 'is', null)
+    .lte('grace_period_end', now);
+
+  if (subscriptionError) {
+    throw new Error(`Failed to fetch subscription for tenant: ${tenantId}`);
+  }
+
+  if (!subscriptions || subscriptions.length === 0) {
+    throw new Error(
+      `Cannot suspend tenant ${tenantId}: no expired subscription with elapsed grace period found`
+    );
+  }
+
+  if (subscriptions.length > 1) {
+    throw new Error(
+      `Cannot suspend tenant ${tenantId}: multiple expired subscriptions with elapsed grace period found; refusing to suspend`
+    );
+  }
+
+  const { error } = await supabase
+    .from('tenants')
+    .update({ is_active: false, suspension_reason: 'subscription_expiry', updated_at: new Date().toISOString() })
+    .eq('id', tenantId);
+
+  if (error) {
+    throw new Error(`Failed to suspend tenant for subscription expiry: ${error.message}`);
   }
 }
 
@@ -514,7 +619,7 @@ export async function reactivateTenant(tenantId: string): Promise<void> {
 
   const { error } = await supabase
     .from('tenants')
-    .update({ is_active: true, updated_at: new Date().toISOString() })
+    .update({ is_active: true, suspension_reason: null, updated_at: new Date().toISOString() })
     .eq('id', tenantId);
 
   if (error) {
@@ -524,6 +629,26 @@ export async function reactivateTenant(tenantId: string): Promise<void> {
 
 export async function assignPlanToTenant(tenantId: string, planId: string): Promise<void> {
   const supabase = await createClient();
+
+  // Fetch and validate the target plan before assignment.
+  // Inactive plans (Free, Pro, Scale) must not be assignable.
+  const { data: targetPlan, error: planError } = await supabase
+    .from('plans')
+    .select('id, name, is_active')
+    .eq('id', planId)
+    .maybeSingle();
+
+  if (planError) {
+    throw new Error(`Failed to validate target plan: ${planError.message}`);
+  }
+
+  if (!targetPlan) {
+    throw new Error('Plan not found');
+  }
+
+  if (targetPlan.is_active !== true) {
+    throw new Error(`Plan "${targetPlan.name}" is not active and cannot be assigned`);
+  }
 
   const { error } = await supabase
     .from('tenants')

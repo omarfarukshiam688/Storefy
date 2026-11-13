@@ -1,8 +1,58 @@
 -- Fix subscription renewal, upgrade, and payment validation logic in approve_or_reject_payment()
--- Business logic corrections:
--- 1. Renewal: Also handle 'active' subscriptions - extend billing period from GREATEST(current_period_end, now())
--- 2. Upgrade: Apply scheduled plan immediately (plan_id = scheduled_plan_id, clear scheduled fields)
--- 3. Validation: Require valid subscription_id for subscription-related payment purposes
+-- Database-level protections added in this migration (046 not yet applied):
+-- 1. Renewal: require trusted, deterministic payment-bound billing-period reference; reject missing/ambiguous
+--    references; lock subscription before validating/extending; prevent duplicate extension of the same period.
+--    Overdue/catch-up behavior is preserved only when the future trusted server-side payment creation flow sets
+--    renewal_period_* per existing policy (renewal starts at greatest(subscription.current_period_end, creation_time)).
+--    Approval-time now() is not used in stored-period equality checks so delayed manual verification remains valid.
+-- 2. Upgrade: bind payment to trusted target_plan_id and trusted server-calculated expected_amount (prorated per
+--    accepted policy), require match with subscription scheduled_plan_id, validate target plan active status and
+--    currency/amount against trusted expected amount, apply immediately, preserve billing anchor/dates/usage.
+-- 3. Validation: require valid subscription_id for subscription-related payment purposes.
+-- IMPORTANT: repository currently has no confirmed trusted server-side payment creation/approval API/UI flow.
+-- The database cannot establish trust in client-supplied values. A future trusted server-side flow must calculate
+-- and populate renewal_period_start/end and upgrade target_plan_id/expected_amount correctly.
+
+-- Trusted payment references (idempotent; 037-045 already applied and are not modified)
+alter table public.payments
+  add column if not exists renewal_period_start timestamptz,
+  add column if not exists renewal_period_end timestamptz,
+  add column if not exists target_plan_id uuid references public.plans (id) on delete restrict,
+  add column if not exists expected_amount numeric(12,2);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'payments_renewal_period_pair_check'
+      and conrelid = 'public.payments'::regclass
+  ) then
+    alter table public.payments
+      add constraint payments_renewal_period_pair_check
+      check (
+        (renewal_period_start is null and renewal_period_end is null)
+        or (renewal_period_start is not null and renewal_period_end is not null and renewal_period_start < renewal_period_end)
+      );
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'payments_expected_amount_non_negative_check'
+      and conrelid = 'public.payments'::regclass
+  ) then
+    alter table public.payments
+      add constraint payments_expected_amount_non_negative_check
+      check (expected_amount is null or expected_amount >= 0);
+  end if;
+end $$;
+
+-- Prevent two distinct renewal payments from extending the same subscription for the same billing period.
+-- Applies to renewal payments with a trusted period reference regardless of current status.
+create unique index if not exists idx_payments_subscription_renewal_period_unique
+  on public.payments (subscription_id, renewal_period_end)
+  where purpose = 'subscription_renewal'
+    and subscription_id is not null
+    and renewal_period_end is not null;
 
 create or replace function public.approve_or_reject_payment(
   p_payment_id uuid,
@@ -17,6 +67,7 @@ as $$
 declare
   v_payment public.payments%rowtype;
   v_subscription public.subscriptions%rowtype;
+  v_target_plan public.plans%rowtype;
   v_is_super_admin boolean;
   v_new_status text;
   v_audit_id uuid;
@@ -81,7 +132,7 @@ begin
     end if;
   end if;
 
-  -- 5. Idempotency: check current status
+  -- 5. Idempotency: check current status (per-payment)
   if v_payment.status = 'completed' and p_decision = 'approved' then
     return jsonb_build_object(
       'success', true,
@@ -121,13 +172,161 @@ begin
     );
   end if;
 
-  -- 8. Determine new status
+  -- 8. Validate trusted renewal/upgrade references before mutating payment state.
+  --    For approved subscription-affecting payments, lock subscription and fail closed on mismatch.
+  if p_decision = 'approved' and v_payment.subscription_id is not null then
+    -- Lock subscription row
+    select *
+    into v_subscription
+    from public.subscriptions
+    where id = v_payment.subscription_id
+    for update;
+
+    if not found then
+      return jsonb_build_object(
+        'success', false,
+        'error', 'Subscription not found for payment',
+        'error_code', 'SUBSCRIPTION_NOT_FOUND'
+      );
+    end if;
+
+    -- Validate tenant consistency - FAIL CLOSED
+    if v_payment.tenant_id <> v_subscription.tenant_id then
+      return jsonb_build_object(
+        'success', false,
+        'error', 'Payment tenant does not match subscription tenant',
+        'error_code', 'TENANT_MISMATCH'
+      );
+    end if;
+
+    if v_payment.purpose = 'subscription_renewal' then
+      -- Renewal requires an explicit trusted, deterministic billing-period reference; reject missing/ambiguous references.
+      -- No approval-time now() comparison is used so delayed manual verification of a correctly created payment remains valid.
+      if v_payment.renewal_period_start is null or v_payment.renewal_period_end is null then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Renewal payment requires trusted renewal_period_start and renewal_period_end',
+          'error_code', 'MISSING_RENEWAL_PERIOD'
+        );
+      end if;
+
+      if v_payment.renewal_period_start >= v_payment.renewal_period_end then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Invalid renewal period reference',
+          'error_code', 'INVALID_RENEWAL_PERIOD'
+        );
+      end if;
+
+      if v_subscription.status not in ('active', 'trialing', 'past_due', 'canceled', 'expired') then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Subscription cannot be renewed from status: ' || v_subscription.status,
+          'error_code', 'INVALID_SUBSCRIPTION_STATE'
+        );
+      end if;
+
+      -- Deterministic payment-bound period: must extend from or after the locked subscription's current period end.
+      -- This preserves continuity (start == current_period_end) and trusted overdue/catch-up periods set at creation
+      -- (start >= current_period_end), without recomputing an approval-time now() boundary.
+      -- Trusted server-side creation must set renewal_period_* per existing policy, including catch-up-from-now when overdue.
+      if v_payment.renewal_period_start < v_subscription.current_period_end then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Renewal payment period starts before current subscription billing period end',
+          'error_code', 'RENEWAL_PERIOD_MISMATCH'
+        );
+      end if;
+
+    elsif v_payment.purpose = 'subscription_upgrade' then
+      if v_subscription.status <> 'active' then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Subscription cannot be upgraded from status: ' || v_subscription.status,
+          'error_code', 'INVALID_SUBSCRIPTION_STATE'
+        );
+      end if;
+
+      if v_payment.target_plan_id is null then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Upgrade payment requires trusted target_plan_id',
+          'error_code', 'MISSING_TARGET_PLAN'
+        );
+      end if;
+
+      if v_payment.expected_amount is null then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Upgrade payment requires trusted expected_amount',
+          'error_code', 'MISSING_EXPECTED_AMOUNT'
+        );
+      end if;
+
+      if v_subscription.scheduled_plan_id is null then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Subscription has no scheduled plan for upgrade',
+          'error_code', 'MISSING_SCHEDULED_PLAN'
+        );
+      end if;
+
+      if v_payment.target_plan_id <> v_subscription.scheduled_plan_id then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Upgrade payment target_plan_id does not match subscription scheduled_plan_id',
+          'error_code', 'TARGET_PLAN_MISMATCH'
+        );
+      end if;
+
+      select *
+      into v_target_plan
+      from public.plans
+      where id = v_payment.target_plan_id;
+
+      if not found then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Target plan not found',
+          'error_code', 'TARGET_PLAN_NOT_FOUND'
+        );
+      end if;
+
+      if v_target_plan.is_active is distinct from true then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Target plan is not active',
+          'error_code', 'TARGET_PLAN_INACTIVE'
+        );
+      end if;
+
+      if v_payment.currency <> 'BDT' then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Upgrade payment currency must match target plan pricing currency',
+          'error_code', 'CURRENCY_MISMATCH'
+        );
+      end if;
+
+      -- Validate actual payment against trusted payment-bound expected amount (server-calculated prorated amount).
+      -- Do not compare prorated upgrade payments to full target monthly price; next renewal charges full new plan price.
+      if v_payment.amount <> v_payment.expected_amount then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Upgrade payment amount must match trusted expected amount',
+          'error_code', 'AMOUNT_MISMATCH'
+        );
+      end if;
+    end if;
+  end if;
+
+  -- 9. Determine new status
   v_new_status := case p_decision
     when 'approved' then 'completed'
     when 'rejected' then 'failed'
   end;
 
-  -- 9. Perform atomic status update
+  -- 10. Perform atomic status update
   update public.payments
   set status = v_new_status,
       verified_by = auth.uid(),
@@ -152,30 +351,9 @@ begin
     );
   end if;
 
-  -- 10. If approved, handle subscription activation/renewal/upgrade/downgrade
+  -- 11. If approved, handle subscription activation/renewal/upgrade/downgrade
   if p_decision = 'approved' and v_payment.subscription_id is not null then
-    -- Lock subscription row
-    select *
-    into v_subscription
-    from public.subscriptions
-    where id = v_payment.subscription_id
-    for update;
-
-    if not found then
-      -- Subscription not found - this is a data integrity violation
-      -- Roll back the payment status update and abort
-      raise exception 'Subscription not found for payment: %', v_payment.subscription_id
-        using errcode = 'P0001';
-    end if;
-
-    -- Validate tenant consistency - FAIL CLOSED
-    if v_payment.tenant_id <> v_subscription.tenant_id then
-      -- This is a critical data integrity violation
-      -- Roll back everything and abort
-      raise exception 'Payment tenant_id (%) does not match subscription tenant_id (%)',
-        v_payment.tenant_id, v_subscription.tenant_id
-        using errcode = 'P0001';
-    end if;
+    -- Subscription already locked and validated above for renewal/upgrade paths.
 
     -- Handle subscription changes based on payment purpose
     if v_payment.purpose = 'subscription_initial'
@@ -200,41 +378,26 @@ begin
     elsif v_payment.purpose = 'subscription_renewal'
        and v_subscription.status in ('active', 'trialing', 'past_due', 'canceled', 'expired') then
       
-      -- Renewal: extend billing period from GREATEST(current_period_end, now())
-      -- This handles active subscriptions, overdue, and expired subscriptions
-      declare
-        v_period_start timestamptz;
-        v_period_end timestamptz;
-      begin
-        v_period_start := greatest(v_subscription.current_period_end, now());
-        v_period_end := v_period_start + interval '1 month';
-
-        update public.subscriptions
-        set status = 'active',
-            billing_cycle_anchor = coalesce(v_subscription.billing_cycle_anchor, v_period_start),
-            current_period_start = v_period_start,
-            current_period_end = v_period_end,
-            trial_start = null,
-            trial_end = null,
-            grace_period_end = null,
-            canceled_at = null,
-            cancel_at_period_end = false,
-            suspended_at = null,
-            ended_at = null,
-            updated_at = now()
-        where id = v_payment.subscription_id;
-      end;
+      -- Renewal: extend by the trusted, deterministic payment-bound billing period only.
+      update public.subscriptions
+      set status = 'active',
+          billing_cycle_anchor = coalesce(v_subscription.billing_cycle_anchor, v_payment.renewal_period_start),
+          current_period_start = v_payment.renewal_period_start,
+          current_period_end = v_payment.renewal_period_end,
+          trial_start = null,
+          trial_end = null,
+          grace_period_end = null,
+          canceled_at = null,
+          cancel_at_period_end = false,
+          suspended_at = null,
+          ended_at = null,
+          updated_at = now()
+      where id = v_payment.subscription_id;
 
     elsif v_payment.purpose = 'subscription_upgrade' and v_subscription.status = 'active' then
-      -- Upgrade: apply scheduled plan immediately
-      -- The scheduled_plan_id should be set to the target plan
-      if v_subscription.scheduled_plan_id is null then
-        raise exception 'No scheduled plan for upgrade on subscription: %', v_payment.subscription_id
-          using errcode = 'P0001';
-      end if;
-
+      -- Upgrade: apply validated target plan immediately; preserve billing anchor/dates/usage.
       update public.subscriptions
-      set plan_id = v_subscription.scheduled_plan_id,
+      set plan_id = v_payment.target_plan_id,
           scheduled_plan_id = null,
           scheduled_plan_change_at = null,
           updated_at = now()
@@ -252,7 +415,7 @@ begin
     end if;
   end if;
 
-  -- 11. Create immutable audit record (in same transaction)
+  -- 12. Create immutable audit record (in same transaction)
   insert into public.payment_verification_audit (
     payment_id,
     admin_user_id,
@@ -270,7 +433,7 @@ begin
   )
   returning id into v_audit_id;
 
-  -- 12. Return success with details
+  -- 13. Return success with details
   v_result := jsonb_build_object(
     'success', true,
     'message', 'Payment ' || p_decision,

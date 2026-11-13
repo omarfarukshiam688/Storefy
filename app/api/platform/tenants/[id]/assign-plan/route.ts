@@ -26,6 +26,12 @@ export async function POST(
     if (error instanceof Error && error.message.includes('Super admin')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+    if (error instanceof Error && error.message.includes('not found')) {
+      return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+    }
+    if (error instanceof Error && error.message.includes('not active')) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json({ error: 'Failed to assign plan' }, { status: 500 });
   }
 }
