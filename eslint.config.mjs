@@ -42,6 +42,7 @@ export default tseslint.config(
       'out/**',
       'node_modules/**',
       'public/**',
+      'scripts/**',
       '**/*.config.mjs',
       '**/*.config.js',
       'audit.js',
