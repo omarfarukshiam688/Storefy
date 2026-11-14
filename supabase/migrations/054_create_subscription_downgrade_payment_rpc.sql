@@ -212,6 +212,8 @@ begin
   -- This ensures the payment's idempotency key can be reconstructed from the request_id.
   declare
     v_actual_idempotency_key text;
+    v_error_sqlstate text;
+    v_error_constraint text;
   begin
     if p_idempotency_key like '%:new' then
       v_actual_idempotency_key := regexp_replace(p_idempotency_key, ':new$', ':req:' || v_downgrade_request_id);
@@ -291,6 +293,15 @@ exception
       'error_code', 'IDEMPOTENCY_CONFLICT'
     );
   when others then
+    get stacked diagnostics
+      v_error_sqlstate = returned_sqlstate,
+      v_error_constraint = constraint_name;
+
+    raise warning
+      'create_subscription_downgrade_payment failed; SQLSTATE=%; constraint=%',
+      v_error_sqlstate,
+      nullif(v_error_constraint, '');
+
     return jsonb_build_object(
       'success', false,
       'error', 'Payment creation failed',

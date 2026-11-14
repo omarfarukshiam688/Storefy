@@ -627,6 +627,73 @@ export async function reactivateTenant(tenantId: string): Promise<void> {
   }
 }
 
+/**
+ * Classify a historically inactive tenant as subscription_expiry.
+ *
+ * This operation is strictly for Super Admin use to classify historical
+ * inactive tenants that have NULL suspension_reason but genuinely qualify
+ * for subscription_expiry based on expired subscription evidence.
+ *
+ * Eligibility (all must pass):
+ * - Caller must be Super Admin (enforced by RPC)
+ * - Tenant exists and is inactive (is_active = false)
+ * - suspension_reason is currently NULL
+ * - No current active subscription (trialing, active, past_due, suspended)
+ * - Exactly one expired subscription with elapsed grace period
+ * - No scheduled plan changes
+ * - No administrative suspension to override
+ *
+ * This calls the classify_tenant_suspension_expiry RPC which performs
+ * all validation atomically with row locking.
+ *
+ * Returns: { success: boolean, message: string, tenant_id: string, audit_id: string, ... }
+ * Throws: Error with message and code on failure
+ */
+export async function classifyTenantSuspensionExpiry(tenantId: string): Promise<{
+  success: boolean;
+  message: string;
+  tenant_id: string;
+  audit_id: string;
+  previous_suspension_reason: string | null;
+  new_suspension_reason: string;
+}> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc('classify_tenant_suspension_expiry', {
+    p_tenant_id: tenantId,
+  });
+
+  if (error) {
+    throw new Error(`Failed to classify tenant: ${error.message}`);
+  }
+
+  const result = data as {
+    success: boolean;
+    error?: string;
+    error_code?: string;
+    message?: string;
+    tenant_id?: string;
+    audit_id?: string;
+    previous_suspension_reason?: string | null;
+    new_suspension_reason?: string;
+  };
+
+  if (!result.success) {
+    const err = new Error(result.error ?? 'Classification failed') as Error & { code?: string };
+    err.code = result.error_code;
+    throw err;
+  }
+
+  return {
+    success: true,
+    message: result.message ?? 'Tenant classified as subscription_expiry',
+    tenant_id: result.tenant_id ?? tenantId,
+    audit_id: result.audit_id ?? '',
+    previous_suspension_reason: result.previous_suspension_reason ?? null,
+    new_suspension_reason: result.new_suspension_reason ?? 'subscription_expiry',
+  };
+}
+
 export async function assignPlanToTenant(tenantId: string, planId: string): Promise<void> {
   const supabase = await createClient();
 

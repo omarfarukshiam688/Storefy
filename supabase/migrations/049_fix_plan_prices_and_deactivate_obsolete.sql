@@ -62,6 +62,11 @@ where lower(name) = 'free';
 -- 5. Add or correct Business plan at 1299 (idempotent upsert)
 -- If a Business plan already exists with a wrong price, it is corrected.
 -- If it does not exist, it is inserted. No duplicates are created.
+-- Required unique expression index for ON CONFLICT (lower(name)).
+-- Migration fails safely if duplicate case-insensitive plan names exist.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_plans_lower_name
+  ON public.plans (lower(name));
+
 insert into public.plans (
   name,
   description,

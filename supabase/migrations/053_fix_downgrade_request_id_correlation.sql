@@ -104,6 +104,7 @@ declare
   v_target_plan public.plans%rowtype;
   v_payment public.payments%rowtype;
   v_payment_status text;
+  v_payment_found boolean;
   v_payment_count integer;
   v_error_code text;
   v_error_message text;
@@ -151,6 +152,15 @@ begin
         )
       ) on conflict (subscription_id, target_plan_id, scheduled_change_at, event_type)
       do nothing;
+      v_errors := v_errors || jsonb_build_array(
+        jsonb_build_object(
+          'subscription_id', v_sub.subscription_id,
+          'tenant_id', v_sub.tenant_id,
+          'event_type', 'downgrade_failed_target_deleted',
+          'error_code', 'TARGET_PLAN_DELETED',
+          'error_message', 'Target plan no longer exists'
+        )
+      );
       continue;
     end if;
 
@@ -172,6 +182,15 @@ begin
         )
       ) on conflict (subscription_id, target_plan_id, scheduled_change_at, event_type)
       do nothing;
+      v_errors := v_errors || jsonb_build_array(
+        jsonb_build_object(
+          'subscription_id', v_sub.subscription_id,
+          'tenant_id', v_sub.tenant_id,
+          'event_type', 'downgrade_failed_inactive_target',
+          'error_code', 'TARGET_PLAN_INACTIVE',
+          'error_message', 'Target plan is no longer active'
+        )
+      );
       continue;
     end if;
 
@@ -195,6 +214,15 @@ begin
         )
       ) on conflict (subscription_id, target_plan_id, scheduled_change_at, event_type)
       do nothing;
+      v_errors := v_errors || jsonb_build_array(
+        jsonb_build_object(
+          'subscription_id', v_sub.subscription_id,
+          'tenant_id', v_sub.tenant_id,
+          'event_type', 'downgrade_failed_concurrent_change',
+          'error_code', 'SCHEDULE_CLEARED',
+          'error_message', 'Scheduled plan change was already cleared'
+        )
+      );
       continue;
     end if;
 
@@ -223,7 +251,9 @@ begin
         and p.metadata->>'downgrade_request_id' = v_sub.downgrade_request_id::text
         limit 1;
 
-      if not found then
+      v_payment_found := FOUND;
+
+      IF NOT v_payment_found THEN
         insert into public.subscription_change_audit (
           subscription_id, tenant_id, previous_plan_id, target_plan_id,
           scheduled_change_at, applied_at, event_type,
@@ -282,6 +312,38 @@ begin
           do nothing;
         end if;
       end if;
+      IF NOT v_payment_found THEN
+        v_errors := v_errors || jsonb_build_array(
+          jsonb_build_object(
+            'subscription_id', v_sub.subscription_id,
+            'tenant_id', v_sub.tenant_id,
+            'event_type', 'downgrade_failed_payment_missing',
+            'error_code', 'PAYMENT_MISSING',
+            'error_message', 'No downgrade payment found for this subscription and target plan'
+          )
+        );
+      elsif v_payment_status = 'verification_required' then
+        v_errors := v_errors || jsonb_build_array(
+          jsonb_build_object(
+            'subscription_id', v_sub.subscription_id,
+            'tenant_id', v_sub.tenant_id,
+            'event_type', 'downgrade_failed_payment_pending',
+            'error_code', 'PAYMENT_NOT_APPROVED',
+            'error_message', 'Downgrade payment is pending Super Admin verification'
+          )
+        );
+      else
+        v_errors := v_errors || jsonb_build_array(
+          jsonb_build_object(
+            'subscription_id', v_sub.subscription_id,
+            'tenant_id', v_sub.tenant_id,
+            'event_type', 'downgrade_failed_payment_rejected',
+            'error_code', 'PAYMENT_NOT_APPROVED',
+            'error_message',
+              'Downgrade payment has not been approved (status: ' || v_payment_status || ')'
+          )
+        );
+      end if;
       continue;
     end if;
 
@@ -304,6 +366,15 @@ begin
         )
       ) on conflict (subscription_id, target_plan_id, scheduled_change_at, event_type)
       do nothing;
+      v_errors := v_errors || jsonb_build_array(
+        jsonb_build_object(
+          'subscription_id', v_sub.subscription_id,
+          'tenant_id', v_sub.tenant_id,
+          'event_type', 'downgrade_failed_payment_multiple',
+          'error_code', 'PAYMENT_MULTIPLE',
+          'error_message', 'Multiple approved downgrade payments found for this subscription and target plan'
+        )
+      );
       continue;
     end if;
 
@@ -336,6 +407,15 @@ begin
         )
       ) on conflict (subscription_id, target_plan_id, scheduled_change_at, event_type)
       do nothing;
+      v_errors := v_errors || jsonb_build_array(
+        jsonb_build_object(
+          'subscription_id', v_sub.subscription_id,
+          'tenant_id', v_sub.tenant_id,
+          'event_type', 'downgrade_failed_concurrent_change',
+          'error_code', 'SCHEDULE_CLEARED_CONCURRENT',
+          'error_message', 'Scheduled plan change was cleared by another transaction'
+        )
+      );
       continue;
     end if;
 
@@ -398,21 +478,33 @@ declare
   v_payment public.payments%rowtype;
   v_subscription public.subscriptions%rowtype;
   v_target_plan public.plans%rowtype;
+  v_current_plan public.plans%rowtype;
   v_is_super_admin boolean;
   v_new_status text;
   v_audit_id uuid;
   v_result jsonb;
+
   v_allowed_purposes constant text[] := array[
-    'subscription_initial', 'subscription_renewal', 'subscription_upgrade',
-    'subscription_downgrade', 'manual_topup', 'refund'
+    'subscription_initial',
+    'subscription_renewal',
+    'subscription_upgrade',
+    'subscription_downgrade',
+    'manual_topup',
+    'refund'
   ];
+
   v_subscription_required_purposes constant text[] := array[
-    'subscription_initial', 'subscription_renewal', 'subscription_upgrade',
+    'subscription_initial',
+    'subscription_renewal',
+    'subscription_upgrade',
     'subscription_downgrade'
   ];
+
 begin
   -- 1. Verify Super Admin authorization
-  select public.is_super_admin() into v_is_super_admin;
+  select public.is_super_admin()
+  into v_is_super_admin;
+
   if not v_is_super_admin then
     return jsonb_build_object(
       'success', false,
@@ -496,8 +588,9 @@ begin
     );
   end if;
 
-  -- 8. Validate trusted renewal/upgrade references
+  -- 8. Validate trusted subscription references before approval
   if p_decision = 'approved' and v_payment.subscription_id is not null then
+
     select *
     into v_subscription
     from public.subscriptions
@@ -520,8 +613,11 @@ begin
       );
     end if;
 
+    -- 8a. Renewal validation
     if v_payment.purpose = 'subscription_renewal' then
-      if v_payment.renewal_period_start is null or v_payment.renewal_period_end is null then
+
+      if v_payment.renewal_period_start is null
+         or v_payment.renewal_period_end is null then
         return jsonb_build_object(
           'success', false,
           'error', 'Renewal payment requires trusted renewal_period_start and renewal_period_end',
@@ -537,7 +633,9 @@ begin
         );
       end if;
 
-      if v_subscription.status not in ('active', 'trialing', 'past_due', 'canceled', 'expired') then
+      if v_subscription.status not in (
+        'active', 'trialing', 'past_due', 'canceled', 'expired'
+      ) then
         return jsonb_build_object(
           'success', false,
           'error', 'Subscription cannot be renewed from status: ' || v_subscription.status,
@@ -553,7 +651,9 @@ begin
         );
       end if;
 
+    -- 8b. Upgrade validation
     elsif v_payment.purpose = 'subscription_upgrade' then
+
       if v_subscription.status <> 'active' then
         return jsonb_build_object(
           'success', false,
@@ -630,14 +730,142 @@ begin
           'error_code', 'AMOUNT_MISMATCH'
         );
       end if;
+
+    -- 8c. Downgrade validation
+    elsif v_payment.purpose = 'subscription_downgrade' then
+
+      if v_subscription.status <> 'active' then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Subscription cannot be downgraded from status: ' || v_subscription.status,
+          'error_code', 'INVALID_SUBSCRIPTION_STATE'
+        );
+      end if;
+
+      if v_payment.target_plan_id is null then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Downgrade payment requires target_plan_id',
+          'error_code', 'MISSING_TARGET_PLAN'
+        );
+      end if;
+
+      if v_subscription.scheduled_plan_id is null then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Subscription has no scheduled downgrade plan',
+          'error_code', 'MISSING_SCHEDULED_PLAN'
+        );
+      end if;
+
+      if v_payment.target_plan_id <> v_subscription.scheduled_plan_id then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Downgrade payment target_plan_id does not match subscription scheduled_plan_id',
+          'error_code', 'TARGET_PLAN_MISMATCH'
+        );
+      end if;
+
+      if v_subscription.scheduled_plan_change_at is null then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Scheduled downgrade effective date is missing',
+          'error_code', 'MISSING_SCHEDULED_CHANGE_DATE'
+        );
+      end if;
+
+      if v_subscription.downgrade_request_id is null then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Subscription downgrade request ID is missing',
+          'error_code', 'MISSING_DOWNGRADE_REQUEST_ID'
+        );
+      end if;
+
+      if v_payment.metadata->>'downgrade_request_id'
+         is distinct from v_subscription.downgrade_request_id::text then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Downgrade payment request ID does not match the current scheduled request',
+          'error_code', 'DOWNGRADE_REQUEST_ID_MISMATCH'
+        );
+      end if;
+
+      select *
+      into v_target_plan
+      from public.plans
+      where id = v_payment.target_plan_id;
+
+      if not found then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Downgrade target plan not found',
+          'error_code', 'TARGET_PLAN_NOT_FOUND'
+        );
+      end if;
+
+      if v_target_plan.is_active is distinct from true then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Downgrade target plan is not active',
+          'error_code', 'TARGET_PLAN_INACTIVE'
+        );
+      end if;
+
+      select *
+      into v_current_plan
+      from public.plans
+      where id = v_subscription.plan_id;
+
+      if not found then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Current subscription plan not found',
+          'error_code', 'CURRENT_PLAN_NOT_FOUND'
+        );
+      end if;
+
+      if v_target_plan.price_monthly >= v_current_plan.price_monthly then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Downgrade target plan must be cheaper than the current plan',
+          'error_code', 'TARGET_PLAN_NOT_CHEAPER'
+        );
+      end if;
+
+      if v_payment.amount is distinct from 0::numeric then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Downgrade payment amount must be zero',
+          'error_code', 'INVALID_DOWNGRADE_AMOUNT'
+        );
+      end if;
+
+      if v_payment.expected_amount is not null then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Downgrade payment expected_amount must be NULL',
+          'error_code', 'UNEXPECTED_DOWNGRADE_EXPECTED_AMOUNT'
+        );
+      end if;
+
+      if v_payment.currency is distinct from 'BDT' then
+        return jsonb_build_object(
+          'success', false,
+          'error', 'Downgrade payment currency must be BDT',
+          'error_code', 'CURRENCY_MISMATCH'
+        );
+      end if;
+
     end if;
   end if;
 
-  -- 8b. On rejection of an upgrade or downgrade payment, clear the scheduled
-  --     plan change and downgrade_request_id ONLY when the payment's request
-  --     ID matches the subscription's current request ID (downgrade only).
-  --    Upgrade rejections clear by target_plan_id match only (backward compatible).
-  if p_decision = 'rejected' and v_payment.purpose in ('subscription_upgrade', 'subscription_downgrade') and v_payment.subscription_id is not null then
+  -- 9. On rejection, clear scheduled upgrade/downgrade only under the
+  --    original matching rules. Preserve the existing behavior.
+  if p_decision = 'rejected'
+     and v_payment.purpose in ('subscription_upgrade', 'subscription_downgrade')
+     and v_payment.subscription_id is not null then
+
     select *
     into v_subscription
     from public.subscriptions
@@ -661,10 +889,13 @@ begin
     end if;
 
     if v_subscription.scheduled_plan_id = v_payment.target_plan_id then
+
       if v_payment.purpose = 'subscription_downgrade' then
-        -- Downgrade rejection: require matching request ID
+
         if v_subscription.downgrade_request_id is not null
-           and v_payment.metadata->>'downgrade_request_id' = v_subscription.downgrade_request_id::text then
+           and v_payment.metadata->>'downgrade_request_id'
+               = v_subscription.downgrade_request_id::text then
+
           update public.subscriptions
           set scheduled_plan_id = null,
               scheduled_plan_change_at = null,
@@ -672,24 +903,26 @@ begin
               updated_at = now()
           where id = v_payment.subscription_id;
         end if;
+
       else
-        -- Upgrade rejection: clear by target_plan_id match only (backward compatible)
+
         update public.subscriptions
         set scheduled_plan_id = null,
             scheduled_plan_change_at = null,
             updated_at = now()
         where id = v_payment.subscription_id;
+
       end if;
     end if;
   end if;
 
-  -- 9. Determine new status
+  -- 10. Determine new payment status
   v_new_status := case p_decision
     when 'approved' then 'completed'
     when 'rejected' then 'failed'
   end;
 
-  -- 10. Perform atomic status update
+  -- 11. Perform atomic payment status update
   update public.payments
   set status = v_new_status,
       verified_by = auth.uid(),
@@ -700,8 +933,11 @@ begin
     and status = 'verification_required';
 
   if not found then
-    select status into v_payment.status
-    from public.payments where id = p_payment_id;
+    select status
+    into v_payment.status
+    from public.payments
+    where id = p_payment_id;
+
     return jsonb_build_object(
       'success', true,
       'message', 'Payment already processed by concurrent request',
@@ -711,10 +947,12 @@ begin
     );
   end if;
 
-  -- 11. If approved, handle subscription activation/renewal/upgrade/downgrade
+  -- 12. Handle subscription activation, renewal, upgrade, or downgrade
   if p_decision = 'approved' and v_payment.subscription_id is not null then
+
     if v_payment.purpose = 'subscription_initial'
        and v_subscription.status in ('trialing', 'past_due', 'canceled', 'expired') then
+
       update public.subscriptions
       set status = 'active',
           billing_cycle_anchor = coalesce(v_subscription.billing_cycle_anchor, now()),
@@ -732,6 +970,7 @@ begin
 
     elsif v_payment.purpose = 'subscription_renewal'
        and v_subscription.status in ('active', 'trialing', 'past_due', 'canceled', 'expired') then
+
       update public.subscriptions
       set status = 'active',
           billing_cycle_anchor = coalesce(v_subscription.billing_cycle_anchor, v_payment.renewal_period_start),
@@ -747,7 +986,9 @@ begin
           updated_at = now()
       where id = v_payment.subscription_id;
 
-    elsif v_payment.purpose = 'subscription_upgrade' and v_subscription.status = 'active' then
+    elsif v_payment.purpose = 'subscription_upgrade'
+       and v_subscription.status = 'active' then
+
       update public.subscriptions
       set plan_id = v_payment.target_plan_id,
           scheduled_plan_id = null,
@@ -755,19 +996,29 @@ begin
           updated_at = now()
       where id = v_payment.subscription_id;
 
-    elsif v_payment.purpose = 'subscription_downgrade' and v_subscription.status = 'active' then
-      -- Downgrade: scheduled for next billing date - payment confirms intent
-      -- The downgrade will be applied at scheduled_plan_change_at via cron
+    elsif v_payment.purpose = 'subscription_downgrade'
+       and v_subscription.status = 'active' then
+
+      -- Approval confirms the scheduled downgrade payment.
+      -- Do not change the current plan here.
+      -- The downgrade worker applies the scheduled plan at its effective date.
       update public.subscriptions
       set updated_at = now()
       where id = v_payment.subscription_id;
+
     end if;
   end if;
 
-  -- 12. Create immutable audit record
+  -- 13. Create immutable payment verification audit record
   insert into public.payment_verification_audit (
-    payment_id, admin_user_id, decision, previous_status, new_status, reason
-  ) values (
+    payment_id,
+    admin_user_id,
+    decision,
+    previous_status,
+    new_status,
+    reason
+  )
+  values (
     p_payment_id,
     auth.uid(),
     p_decision,
@@ -777,7 +1028,7 @@ begin
   )
   returning id into v_audit_id;
 
-  -- 13. Return success
+  -- 14. Return success
   v_result := jsonb_build_object(
     'success', true,
     'message', 'Payment ' || p_decision,

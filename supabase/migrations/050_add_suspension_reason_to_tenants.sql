@@ -8,14 +8,16 @@
 -- subscription and would incorrectly qualify.
 --
 -- Fix: Add an explicit suspension_reason column to public.tenants.
---   null          → active tenant
+--   NULL                  → no explicit suspension classification;
+--                           may represent an active tenant or a historical
+--                           inactive tenant whose suspension reason is unknown
 --   'subscription_expiry' → suspended due to non-payment / subscription expiry
 --   'administrative'      → manually disabled by Super Admin
 --
--- Backfill strategy: Historical tenant records with is_active = false are
--- backfilled as 'administrative' (fail closed — no billing access unless
--- explicitly reclassified). No ambiguous historical record is granted the
--- subscription-suspension exception.
+-- Backfill strategy: No automatic backfill. Historical inactive tenants keep
+-- NULL suspension_reason (unknown reason). This preserves accurate history and
+-- avoids misclassification. Super Admins must explicitly classify any tenant
+-- needing billing access as 'subscription_expiry'.
 --
 -- Migration number: 050 (next after 049)
 -- Dependencies: 037-049 already applied
@@ -26,13 +28,11 @@ alter table public.tenants
   add column if not exists suspension_reason text
     check (suspension_reason is null or suspension_reason in ('subscription_expiry', 'administrative'));
 
--- Backfill: tenants that are inactive but were never classified get 'administrative'
--- (fail closed — they will not get billing access unless explicitly reclassified).
-update public.tenants
-  set suspension_reason = 'administrative',
-      updated_at = now()
-  where is_active = false
-    and suspension_reason is null;
+-- Historical inactive tenants keep NULL suspension_reason (unknown reason).
+-- This preserves accurate history: unknown reasons stay unknown.
+-- Application logic treats NULL as "not subscription-suspended" (fail closed).
+-- Both NULL and 'administrative' deny the inactive-tenant billing exception.
+-- Super Admins must explicitly classify qualifying tenants as 'subscription_expiry'.
 
 -- Index for efficient queries by suspension reason
 create index if not exists idx_tenants_suspension_reason
