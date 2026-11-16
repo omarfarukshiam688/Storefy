@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantContext } from '@/lib/auth/tenant';
+import { getTenantContext, requireTenantAdmin } from '@/lib/auth/tenant';
 import { listProducts, createProduct } from '@/lib/products';
 import { createProductSchema } from '@/lib/validation/product';
 import { handleAuthError } from '@/lib/auth/errors';
@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
     if (!context.activeTenant) {
       return NextResponse.json({ error: 'No active tenant' }, { status: 403 });
     }
+
+    await requireTenantAdmin(context.activeTenant.id);
 
     const body = await req.json();
     const validated = createProductSchema.safeParse(body);

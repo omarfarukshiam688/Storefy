@@ -109,16 +109,21 @@ async function getTenantResourceUsageFromClient(
     .map((row) => row.storage_path)
     .filter((path): path is string => typeof path === 'string' && path.length > 0);
 
-  const [productImageStorageBytes, storeAssetStorageBytes] = await Promise.all([
+  const [productImageStorage, storeAssetStorage] = await Promise.all([
     getBytesFromStorage('product-images', productImagePaths),
     getBytesFromStorage('store-assets', storeAssetPaths),
   ]);
+
+  const storageMeasurementFailed =
+    productImageStorage.status === 'error' || storeAssetStorage.status === 'error';
 
   return {
     products: activeProductsResult.count ?? 0,
     orders: totalOrdersResult.count ?? 0,
     members: membersResult.count ?? 0,
-    storage_used_bytes: productImageStorageBytes + storeAssetStorageBytes,
+    storage_used_bytes: storageMeasurementFailed
+      ? -1
+      : productImageStorage.bytes + storeAssetStorage.bytes,
   };
 }
 

@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { getProduct } from '@/lib/products';
-import { listProductImages, createProductImageRecord } from '@/lib/products/images';
+import { listProductImages, createProductImageRecord, deleteProductImageRecord } from '@/lib/products/images';
 import type { ProductImage } from '@/types';
-import { uploadProductImageFile, detectImageType, sanitizeOriginalFilename, buildProductImagePath, getProductImagesSignedUrls, assertStorageQuota, deleteProductImageFile } from '@/lib/storage';
+import {
+  uploadProductImageFile,
+  detectImageType,
+  sanitizeOriginalFilename,
+  buildProductImagePath,
+  getProductImagesSignedUrls,
+  deleteProductImageFile,
+  reserveStorageQuota,
+  finalizeStorageReservation,
+  releaseStorageReservation,
+} from '@/lib/storage';
 
 export async function GET(req: NextRequest) {
   try {
@@ -89,12 +99,30 @@ export async function POST(req: NextRequest) {
       detected.extension
     );
 
-    // Check storage quota before upload
-    await assertStorageQuota(context.activeTenant.id, file.size);
+    // Reserve quota atomically (prevents concurrent upload races; idempotent by object key)
+    const reservation = await reserveStorageQuota({
+      tenantId: context.activeTenant.id,
+      bucketId: 'product-images',
+      storagePath,
+      objectKey: `product-image:${imageId}`,
+      bytes: file.size,
+      source: 'upload',
+    });
+    if (!reservation.success) {
+      const status = reservation.error_code === 'QUOTA_EXCEEDED' ? 413 : 503;
+      return NextResponse.json(
+        {
+          error: reservation.error ?? 'Storage quota reservation failed',
+          code: reservation.error_code ?? 'RESERVATION_FAILED',
+        },
+        { status }
+      );
+    }
 
     // Upload to storage
     const uploadResult = await uploadProductImageFile(file, storagePath, detected.mimeType);
     if (uploadResult.error) {
+      await releaseStorageReservation(context.activeTenant.id, `product-image:${imageId}`, 'upload_failed');
       return NextResponse.json({ error: `Upload failed: ${uploadResult.error.message}` }, { status: 500 });
     }
 
@@ -114,9 +142,26 @@ export async function POST(req: NextRequest) {
         is_primary: images.length === 0, // first image becomes primary
       });
     } catch {
-      await deleteProductImageFile(storagePath);
+      const cleanup = await deleteProductImageFile(storagePath);
+      await releaseStorageReservation(context.activeTenant.id, `product-image:${imageId}`, 'record_create_failed');
       return NextResponse.json(
-        { error: 'Failed to save image metadata' },
+        {
+          error: 'Failed to save image metadata',
+          cleanup: cleanup.error ? 'storage_cleanup_failed' : 'storage_cleaned',
+        },
+        { status: 500 }
+      );
+    }
+
+    // Finalize reservation (increments internal usage). If this fails, attempt compensation.
+    const finalize = await finalizeStorageReservation(context.activeTenant.id, `product-image:${imageId}`, file.size);
+    if (!finalize.success) {
+      // Compensate to avoid orphaned accounted state mismatch
+      await deleteProductImageRecord(context.activeTenant.id, imageRecord.id).catch(() => {});
+      await deleteProductImageFile(storagePath).catch(() => {});
+      await releaseStorageReservation(context.activeTenant.id, `product-image:${imageId}`, 'finalize_failed');
+      return NextResponse.json(
+        { error: 'Failed to finalize storage accounting', code: finalize.error_code ?? 'FINALIZE_FAILED' },
         { status: 500 }
       );
     }

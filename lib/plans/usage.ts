@@ -12,69 +12,164 @@ export interface TenantResourceUsage {
   storage_limit_bytes: number;
 }
 
+type PlanLimits = {
+  product_limit: number;
+  archived_product_limit: number;
+  order_limit: number;
+  storage_limit_bytes: number;
+};
+
 export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return 'Unavailable';
   if (bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  const i = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(k)),
+    sizes.length - 1
+  );
+  const value = bytes / Math.pow(k, i);
+  return `${parseFloat(value.toFixed(2))} ${sizes[i]}`;
 }
 
+export interface StorageSizeMeasurement {
+  status: 'ok' | 'error';
+  bytes: number;
+  failedPaths: string[];
+  error?: string;
+}
+
+function asPlanLimits(value: unknown): PlanLimits | null {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  if (!candidate || typeof candidate !== 'object') return null;
+  const plan = candidate as Record<string, unknown>;
+  const product_limit = Number(plan.product_limit);
+  const archived_product_limit = Number(plan.archived_product_limit);
+  const order_limit = Number(plan.order_limit);
+  const storage_limit_bytes = Number(plan.storage_limit_bytes);
+  if (
+    !Number.isFinite(product_limit) ||
+    !Number.isFinite(archived_product_limit) ||
+    !Number.isFinite(order_limit) ||
+    !Number.isFinite(storage_limit_bytes)
+  ) {
+    return null;
+  }
+  return { product_limit, archived_product_limit, order_limit, storage_limit_bytes };
+}
+
+/**
+ * Measures total bytes for the given storage object paths.
+ *
+ * IMPORTANT: This never treats an unknown measurement as zero. If any object
+ * size cannot be determined, status is "error" and callers must fail safely for
+ * quota-sensitive decisions (do not allow potentially unlimited uploads).
+ */
 export async function getBytesFromStorage(
   bucket: string,
   paths: string[]
-): Promise<number> {
+): Promise<StorageSizeMeasurement> {
   if (paths.length === 0) {
-    return 0;
+    return { status: 'ok', bytes: 0, failedPaths: [] };
   }
 
-  const supabase = createServiceClient();
-  const sizes = await Promise.all(
-    paths.map(async (path) => {
-      try {
-        const { data: info, error: infoError } = await supabase.storage
-          .from(bucket)
-          .info(path);
+  let supabase;
+  try {
+    supabase = createServiceClient();
+  } catch (e) {
+    return {
+      status: 'error',
+      bytes: 0,
+      failedPaths: paths,
+      error: e instanceof Error ? e.message : 'Storage client unavailable',
+    };
+  }
 
-        if (infoError || !info) {
-          return 0;
-        }
+  let total = 0;
+  const failedPaths: string[] = [];
+  let firstError: string | undefined;
 
-        const size = (info as { size?: number }).size;
-        if (typeof size === 'number' && size > 0) {
-          return size;
-        }
-        return 0;
-      } catch {
-        return 0;
+  for (const path of paths) {
+    try {
+      const infoResult = await supabase.storage.from(bucket).info(path);
+      const infoError = (infoResult as { error?: { message?: string } | null }).error;
+      const info = (infoResult as { data?: unknown }).data;
+
+      if (infoError || !info) {
+        failedPaths.push(path);
+        firstError =
+          firstError ?? (infoError?.message ?? 'Storage object info unavailable');
+        continue;
       }
-    })
-  );
 
-  return sizes.reduce((sum, size) => sum + size, 0);
+      const size = (info as { size?: number }).size;
+      if (typeof size === 'number' && Number.isFinite(size) && size >= 0) {
+        total += size;
+      } else {
+        failedPaths.push(path);
+        firstError = firstError ?? 'Storage object size missing';
+      }
+    } catch (e) {
+      failedPaths.push(path);
+      firstError =
+        firstError ?? (e instanceof Error ? e.message : 'Storage info failed');
+    }
+  }
+
+  if (failedPaths.length > 0) {
+    return { status: 'error', bytes: total, failedPaths, error: firstError };
+  }
+
+  return { status: 'ok', bytes: total, failedPaths: [] };
 }
 
-export async function getTenantResourceUsage(tenantId: string): Promise<TenantResourceUsage> {
+export async function getTenantResourceUsage(
+  tenantId: string
+): Promise<TenantResourceUsage> {
   const supabase = await createClient();
 
-  const { data: tenant, error: tenantError } = await supabase
-    .from('tenants')
-    .select('plan_id')
-    .eq('id', tenantId)
-    .single();
+  const { data: subscription, error: subError } = await supabase
+    .from('subscriptions')
+    .select(
+      'plan_id, plan:plans!plan_id(product_limit, archived_product_limit, order_limit, storage_limit_bytes)'
+    )
+    .eq('tenant_id', tenantId)
+    .in('status', [
+      'active',
+      'trialing',
+      'past_due',
+      'suspended',
+      'canceled',
+      'expired',
+    ])
+    .order('current_period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (tenantError || !tenant) {
-    throw new Error(tenantError?.message ?? 'Tenant not found');
+  if (subError) {
+    throw new Error(subError.message ?? 'Failed to load subscription');
   }
 
-  const { data: plan, error: planError } = await supabase
-    .from('plans')
-    .select('product_limit, archived_product_limit, order_limit, storage_limit_bytes')
-    .eq('id', tenant.plan_id)
-    .single();
+  let plan = asPlanLimits(subscription?.plan);
 
-  if (planError || !plan) {
-    throw new Error(planError?.message ?? 'Plan not found');
+  if (!subscription) {
+    // Fallback to tenant plan_id for legacy/trial tenants without subscription
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .select(
+        'plan_id, plan:plans!plan_id(product_limit, archived_product_limit, order_limit, storage_limit_bytes)'
+      )
+      .eq('id', tenantId)
+      .maybeSingle();
+
+    if (tenantError) {
+      throw new Error(tenantError.message ?? 'Failed to load tenant plan');
+    }
+    plan = asPlanLimits(tenant?.plan);
+  }
+
+  if (!plan) {
+    throw new Error('Tenant plan not found');
   }
 
   const [
@@ -109,18 +204,43 @@ export async function getTenantResourceUsage(tenantId: string): Promise<TenantRe
       .eq('tenant_id', tenantId),
   ]);
 
+  const queryErrors = [
+    activeProductsResult.error,
+    archivedProductsResult.error,
+    totalOrdersResult.error,
+    productImageRows.error,
+    storeAssetRows.error,
+  ].filter(Boolean);
+
+  if (queryErrors.length > 0) {
+    throw new Error(queryErrors[0]!.message ?? 'Failed to load tenant resource usage');
+  }
+
   const productImagePaths = (productImageRows.data ?? [])
-    .map((row) => row.storage_path)
+    .map((row) => (row as { storage_path?: unknown }).storage_path)
     .filter((path): path is string => typeof path === 'string' && path.length > 0);
 
   const storeAssetPaths = (storeAssetRows.data ?? [])
-    .map((row) => row.storage_path)
+    .map((row) => (row as { storage_path?: unknown }).storage_path)
     .filter((path): path is string => typeof path === 'string' && path.length > 0);
 
-  const [productImageStorageBytes, storeAssetStorageBytes] = await Promise.all([
-    getBytesFromStorage('product-images', productImagePaths),
-    getBytesFromStorage('store-assets', storeAssetPaths),
-  ]);
+  let storage_used_bytes: number;
+  try {
+    const [productImageStorage, storeAssetStorage] = await Promise.all([
+      getBytesFromStorage('product-images', productImagePaths),
+      getBytesFromStorage('store-assets', storeAssetPaths),
+    ]);
+
+    const storageMeasurementFailed =
+      productImageStorage.status === 'error' ||
+      storeAssetStorage.status === 'error';
+
+    storage_used_bytes = storageMeasurementFailed
+      ? -1
+      : productImageStorage.bytes + storeAssetStorage.bytes;
+  } catch {
+    storage_used_bytes = -1;
+  }
 
   return {
     product_used: activeProductsResult.count ?? 0,
@@ -129,7 +249,7 @@ export async function getTenantResourceUsage(tenantId: string): Promise<TenantRe
     archived_product_limit: plan.archived_product_limit,
     order_used: totalOrdersResult.count ?? 0,
     order_limit: plan.order_limit,
-    storage_used_bytes: productImageStorageBytes + storeAssetStorageBytes,
+    storage_used_bytes,
     storage_limit_bytes: plan.storage_limit_bytes,
   };
 }

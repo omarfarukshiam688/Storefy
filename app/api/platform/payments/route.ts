@@ -22,7 +22,7 @@ export async function GET(request: Request) {
         `
         *,
         tenant:tenants(name, slug),
-        target_plan:plans(name, price_monthly, is_active)
+        target_plan:plans!payments_target_plan_id_fkey(name, price_monthly, is_active)
       `,
         { count: 'exact' }
       )

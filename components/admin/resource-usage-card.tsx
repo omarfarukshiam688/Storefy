@@ -11,8 +11,10 @@ interface ResourceUsageCardProps {
   format?: (value: number) => string;
 }
 
-function getState(used: number, limit: number): 'normal' | 'approaching' | 'near-limit' | 'reached' | 'unlimited' {
+function getState(used: number, limit: number): 'normal' | 'approaching' | 'near-limit' | 'reached' | 'unlimited' | 'unavailable' {
+  if (used < 0) return 'unavailable';
   if (limit === -1) return 'unlimited';
+  if (limit <= 0) return used > 0 ? 'reached' : 'normal';
   if (used >= limit) return 'reached';
   const ratio = used / limit;
   if (ratio >= 0.9) return 'near-limit';
@@ -46,6 +48,11 @@ const stateStyles: Record<string, { bar: string; badge: string; border: string }
     badge: 'bg-violet-50 text-violet-700 border-violet-200',
     border: 'border-violet-100',
   },
+  unavailable: {
+    bar: 'bg-slate-300',
+    badge: 'bg-slate-50 text-slate-700 border-slate-200',
+    border: 'border-slate-200',
+  },
 };
 
 export function ResourceUsageCard({
@@ -59,9 +66,13 @@ export function ResourceUsageCard({
   const state = getState(used, limit);
   const styles = stateStyles[state];
 
-  const progress = limit === -1 ? 0 : Math.min((used / limit) * 100, 100);
-  const remaining = limit === -1 ? Infinity : Math.max(limit - used, 0);
-  const displayRemaining = limit === -1 ? 'Unlimited' : format(remaining);
+  const isUnavailable = state === 'unavailable';
+  const progress =
+    isUnavailable || limit === -1 || limit <= 0 ? 0 : Math.min((used / limit) * 100, 100);
+  const remaining =
+    isUnavailable || limit === -1 ? Infinity : Math.max(limit - used, 0);
+  const displayRemaining =
+    isUnavailable ? 'Unavailable' : limit === -1 ? 'Unlimited' : format(remaining);
 
   const stateLabel: Record<string, string> = {
     normal: '',
@@ -69,6 +80,7 @@ export function ResourceUsageCard({
     'near-limit': 'Near limit',
     reached: 'Limit reached',
     unlimited: 'Unlimited',
+    unavailable: 'Usage unavailable',
   };
 
   return (
@@ -110,10 +122,18 @@ export function ResourceUsageCard({
           {title}
         </p>
         <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-          {limit === -1 ? `${format(used)} / Unlimited` : `${format(used)} / ${format(limit)}`}
+          {isUnavailable
+            ? `Unavailable${limit === -1 ? ' / Unlimited' : ` / ${format(limit)}`}`
+            : limit === -1
+              ? `${format(used)} / Unlimited`
+              : `${format(used)} / ${format(limit)}`}
         </p>
 
-        {limit !== -1 && (
+        {isUnavailable ? (
+          <p className="mt-2 text-xs text-slate-500">
+            Usage measurement is currently unavailable. Limits still apply.
+          </p>
+        ) : limit !== -1 ? (
           <>
             <div className="mt-3 h-2 w-full rounded-full bg-slate-100">
               <div
@@ -131,12 +151,8 @@ export function ResourceUsageCard({
               )}
             </p>
           </>
-        )}
-
-        {limit === -1 && (
-          <p className="mt-2 text-xs text-slate-500">
-            No limits on this plan
-          </p>
+        ) : (
+          <p className="mt-2 text-xs text-slate-500">No limits on this plan</p>
         )}
       </div>
     </div>

@@ -2,6 +2,20 @@ import { createServiceClient } from '@/lib/supabase/admin';
 import { getBytesFromStorage } from '@/lib/plans/usage';
 import type { ProductImage } from '@/types';
 
+export type StorageReservationResult = {
+  success: boolean;
+  idempotent?: boolean;
+  reservation_id?: string;
+  status?: string;
+  error?: string;
+  error_code?: string;
+  quota_bytes?: number;
+  internal_usage_bytes?: number;
+  reserved_bytes?: number;
+  replaces_credit_bytes?: number;
+  requested_bytes?: number;
+};
+
 export const PRODUCT_IMAGES_BUCKET = 'product-images';
 export const STORE_ASSETS_BUCKET = 'store-assets';
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -250,30 +264,48 @@ export async function getHeroImageSignedUrl(
   return getStoreAssetSignedUrl(storagePath, expiresIn);
 }
 
+/**
+ * Legacy quota check (no reservation). Kept for non-upload callers; upload paths
+ * must prefer reserveStorageQuota/finalize/release for atomic, race-safe accounting.
+ * This implementation fails safely if usage cannot be reliably measured.
+ */
 export async function assertStorageQuota(tenantId: string, incomingFileSize: number): Promise<void> {
   const supabase = createServiceClient();
 
-  const { data: tenant, error: tenantError } = await supabase
-    .from('tenants')
-    .select('plan_id')
-    .eq('id', tenantId)
-    .single();
+  const { data: subscription, error: subError } = await supabase
+    .from('subscriptions')
+    .select('plan_id, plan:plans!plan_id(storage_limit_bytes)')
+    .eq('tenant_id', tenantId)
+    .in('status', ['active', 'trialing', 'past_due', 'suspended', 'canceled', 'expired'])
+    .order('current_period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (tenantError || !tenant) {
-    throw new Error(tenantError?.message ?? 'Tenant not found');
+  let storageLimit: number;
+
+  if (subError) {
+    throw new Error(subError?.message ?? 'Failed to load subscription');
   }
 
-  const { data: plan, error: planError } = await supabase
-    .from('plans')
-    .select('storage_limit_bytes')
-    .eq('id', tenant.plan_id)
-    .single();
+  if (!subscription) {
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .select('plan_id, plan:plans!plan_id(storage_limit_bytes)')
+      .eq('id', tenantId)
+      .single();
 
-  if (planError || !plan) {
-    throw new Error(planError?.message ?? 'Plan not found');
+    if (tenantError || !tenant || !tenant.plan || tenant.plan.length === 0) {
+      throw new Error(tenantError?.message ?? 'Tenant plan not found');
+    }
+
+    storageLimit = tenant.plan[0].storage_limit_bytes;
+  } else if (!subscription.plan || subscription.plan.length === 0) {
+    throw new Error('Subscription plan not found');
+  } else {
+    storageLimit = subscription.plan[0].storage_limit_bytes;
   }
 
-  if (plan.storage_limit_bytes === -1) {
+  if (storageLimit === -1) {
     return;
   }
 
@@ -296,20 +328,92 @@ export async function assertStorageQuota(tenantId: string, incomingFileSize: num
     .map((row) => row.storage_path)
     .filter((path): path is string => typeof path === 'string' && path.length > 0);
 
-  const [productImageStorageBytes, storeAssetStorageBytes] = await Promise.all([
+  const [productImageStorage, storeAssetStorage] = await Promise.all([
     getBytesFromStorage('product-images', productImagePaths),
     getBytesFromStorage('store-assets', storeAssetPaths),
   ]);
 
-  const currentUsage = productImageStorageBytes + storeAssetStorageBytes;
-
-  if (currentUsage + incomingFileSize > plan.storage_limit_bytes) {
+  if (productImageStorage.status === 'error' || storeAssetStorage.status === 'error') {
     throw new Error(
-      `Storage limit reached: your current plan allows up to ${plan.storage_limit_bytes} bytes. ` +
+      `Storage usage could not be reliably measured (product-images: ${productImageStorage.status}, store-assets: ${storeAssetStorage.status}). Upload blocked for safety.`
+    );
+  }
+
+  const currentUsage = productImageStorage.bytes + storeAssetStorage.bytes;
+
+  if (currentUsage + incomingFileSize > storageLimit) {
+    throw new Error(
+      `Storage limit reached: your current plan allows up to ${storageLimit} bytes. ` +
       `Current usage: ${currentUsage} bytes. ` +
       `File size: ${incomingFileSize} bytes.`
     );
   }
+}
+
+export async function reserveStorageQuota(input: {
+  tenantId: string;
+  bucketId: 'product-images' | 'store-assets';
+  storagePath: string;
+  objectKey: string;
+  bytes: number;
+  source?: 'upload' | 'replace' | 'migration' | 'repair';
+  replacesStoragePath?: string | null;
+  replacesBytes?: number | null;
+}): Promise<StorageReservationResult> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc('reserve_storage_quota', {
+    p_tenant_id: input.tenantId,
+    p_bucket_id: input.bucketId,
+    p_storage_path: input.storagePath,
+    p_object_key: input.objectKey,
+    p_bytes: input.bytes,
+    p_source: input.source ?? 'upload',
+    p_replaces_storage_path: input.replacesStoragePath ?? null,
+    p_replaces_bytes: input.replacesBytes ?? null,
+  });
+  if (error) {
+    return { success: false, error_code: 'RPC_ERROR', error: error.message };
+  }
+  return (data ?? { success: false, error_code: 'NO_DATA', error: 'No reservation result' }) as StorageReservationResult;
+}
+
+export async function finalizeStorageReservation(tenantId: string, objectKey: string, actualBytes?: number): Promise<StorageReservationResult> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc('finalize_storage_upload_reservation', {
+    p_tenant_id: tenantId,
+    p_object_key: objectKey,
+    p_actual_bytes: actualBytes ?? null,
+  });
+  if (error) {
+    return { success: false, error_code: 'RPC_ERROR', error: error.message };
+  }
+  return (data ?? { success: false, error_code: 'NO_DATA', error: 'No finalize result' }) as StorageReservationResult;
+}
+
+export async function releaseStorageReservation(tenantId: string, objectKey: string, reason?: string): Promise<StorageReservationResult> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc('release_storage_upload_reservation', {
+    p_tenant_id: tenantId,
+    p_object_key: objectKey,
+    p_reason: reason ?? null,
+  });
+  if (error) {
+    return { success: false, error_code: 'RPC_ERROR', error: error.message };
+  }
+  return (data ?? { success: false, error_code: 'NO_DATA', error: 'No release result' }) as StorageReservationResult;
+}
+
+export async function adjustTenantInternalStorageUsage(tenantId: string, deltaBytes: number, reason?: string): Promise<{ success: boolean; error?: string }> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc('adjust_tenant_internal_storage_usage', {
+    p_tenant_id: tenantId,
+    p_delta_bytes: deltaBytes,
+    p_reason: reason ?? null,
+  });
+  if (error) return { success: false, error: error.message };
+  const result = data as { success?: boolean; error?: string } | null;
+  if (!result?.success) return { success: false, error: result?.error ?? 'Adjustment failed' };
+  return { success: true };
 }
 
 export async function createStoreAssetRecord(tenantId: string, input: {
@@ -340,26 +444,41 @@ export async function createStoreAssetRecord(tenantId: string, input: {
   return { id: data.id };
 }
 
-export async function replaceStoreAssetIfExists(
+export async function getExistingStoreAsset(
   tenantId: string,
   assetType: 'logo' | 'hero' | 'about' | 'favicon'
-): Promise<{ storagePath: string | null }> {
+): Promise<{ storage_path: string; file_size: number } | null> {
   const supabase = createServiceClient();
-  const { data: existing, error: fetchError } = await supabase
+  const { data, error } = await supabase
     .from('store_assets')
-    .select('storage_path')
+    .select('storage_path, file_size')
     .eq('tenant_id', tenantId)
     .eq('asset_type', assetType)
     .maybeSingle();
 
-  if (fetchError || !existing) {
-    return { storagePath: null };
+  if (error || !data) return null;
+  return { storage_path: data.storage_path, file_size: Number(data.file_size) || 0 };
+}
+
+/**
+ * Safe replacement flow helper: delete existing storage object and DB record.
+ * Caller is responsible for quota reservation/finalize semantics around the new upload.
+ * Throws on storage deletion failure to avoid orphaned live objects without DB tracking.
+ */
+export async function removeExistingStoreAsset(
+  tenantId: string,
+  assetType: 'logo' | 'hero' | 'about' | 'favicon'
+): Promise<{ storage_path: string; file_size: number } | null> {
+  const existing = await getExistingStoreAsset(tenantId, assetType);
+  if (!existing) return null;
+
+  const { error: storageError } = await deleteStoreAssetFile(existing.storage_path);
+  if (storageError) {
+    throw new Error(`Failed to delete existing store asset: ${storageError.message}`);
   }
 
-  await deleteStoreAssetFile(existing.storage_path);
   await deleteStoreAssetRecord(tenantId, existing.storage_path);
-
-  return { storagePath: existing.storage_path };
+  return existing;
 }
 
 export async function deleteStoreAssetRecord(tenantId: string, storagePath: string): Promise<void> {

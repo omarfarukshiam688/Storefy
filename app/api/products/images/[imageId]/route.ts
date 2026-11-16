@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/lib/auth/tenant';
 import { getProduct } from '@/lib/products';
 import { updateProductImage, deleteProductImageRecord, setProductImagePrimary } from '@/lib/products/images';
-import { deleteProductImageFile, getProductImagesSignedUrls } from '@/lib/storage';
+import { deleteProductImageFile, getProductImagesSignedUrls, adjustTenantInternalStorageUsage } from '@/lib/storage';
 import { updateProductImageSchema } from '@/lib/validation/product-image';
 
 export async function PATCH(
@@ -97,7 +97,7 @@ export async function DELETE(
     const supabase = await import('@/lib/supabase/server').then(m => m.createClient());
     const { data: image, error: imageError } = await supabase
       .from('product_images')
-      .select('storage_path, product_id')
+      .select('storage_path, product_id, file_size')
       .eq('tenant_id', context.activeTenant.id)
       .eq('id', imageId)
       .maybeSingle();
@@ -122,7 +122,19 @@ export async function DELETE(
     // Delete database record
     await deleteProductImageRecord(context.activeTenant.id, imageId);
 
-    return NextResponse.json({ success: true, storageDeleted: true });
+    // Adjust internal usage after confirmed storage delete + record delete
+    const usageAdj = await adjustTenantInternalStorageUsage(
+      context.activeTenant.id,
+      -Math.max(0, Number((image as { file_size?: number }).file_size) || 0),
+      'product_image_deleted'
+    );
+
+    return NextResponse.json({
+      success: true,
+      storageDeleted: true,
+      accountingAdjusted: usageAdj.success,
+      accountingWarning: usageAdj.success ? undefined : usageAdj.error,
+    });
   } catch (error) {
     console.error('Product image delete error:', error);
     if (error instanceof Error && error.message === 'Unauthorized') {

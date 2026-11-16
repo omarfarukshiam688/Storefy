@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantContext } from '@/lib/auth/tenant';
+import { getTenantContext, requireTenantAdmin } from '@/lib/auth/tenant';
 import { getProduct, updateProduct, archiveProduct, restoreProduct, deleteProduct } from '@/lib/products';
 import { updateProductSchema } from '@/lib/validation/product';
 import { handleAuthError } from '@/lib/auth/errors';
@@ -37,6 +37,8 @@ export async function PATCH(
     if (!context.activeTenant) {
       return NextResponse.json({ error: 'No active tenant' }, { status: 403 });
     }
+
+    await requireTenantAdmin(context.activeTenant.id);
 
     const { id } = await params;
     const body = await req.json();
@@ -81,6 +83,8 @@ export async function DELETE(
     if (!context.activeTenant) {
       return NextResponse.json({ error: 'No active tenant' }, { status: 403 });
     }
+
+    await requireTenantAdmin(context.activeTenant.id);
 
     const { id } = await params;
 

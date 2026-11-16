@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
+  Activity,
   LayoutDashboard,
   Users,
   Package,
@@ -29,6 +30,7 @@ interface PlatformSidebarProps {
 
 const platformNavItems = [
   { href: '/platform', label: 'Overview', icon: LayoutDashboard },
+  { href: '/platform/infrastructure-usage', label: 'Infrastructure Usage', icon: Activity },
   { href: '/platform/tenants', label: 'Tenants', icon: Store },
   { href: '/platform/announcements', label: 'Announcements', icon: Megaphone },
   { href: '/platform/plans', label: 'Plans', icon: Package },

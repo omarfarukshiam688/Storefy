@@ -39,7 +39,7 @@ export default async function BillingPage() {
       const supabase = await (await import('@/lib/supabase/server')).createClient();
       const { data, error } = await supabase
         .from('subscriptions')
-        .select('*, plan:plans(*)')
+        .select('*, plan:plans!plan_id(*)')
         .eq('tenant_id', tenantId)
         .order('current_period_end', { ascending: false })
         .limit(1)

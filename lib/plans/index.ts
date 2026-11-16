@@ -4,25 +4,39 @@ import type { Plan } from '@/types';
 export async function getTenantPlan(tenantId: string): Promise<Plan | null> {
   const supabase = await createClient();
 
-  const { data: tenant, error: tenantError } = await supabase
-    .from('tenants')
-    .select('plan_id')
-    .eq('id', tenantId)
-    .single();
+  const { data: subscription, error: subError } = await supabase
+    .from('subscriptions')
+    .select('plan_id, plan:plans!plan_id(*)')
+    .eq('tenant_id', tenantId)
+    .in('status', ['active', 'trialing', 'past_due', 'suspended', 'canceled', 'expired'])
+    .order('current_period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (tenantError || !tenant) {
+  let planData: Plan | null = null;
+
+  if (subError) {
     return null;
   }
 
-  const { data: plan, error: planError } = await supabase
-    .from('plans')
-    .select('*')
-    .eq('id', tenant.plan_id)
-    .single();
+  if (!subscription) {
+    // Fallback to tenant plan_id for legacy/trial tenants without subscription
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .select('plan_id, plan:plans!plan_id(*)')
+      .eq('id', tenantId)
+      .single();
 
-  if (planError || !plan) {
+    if (tenantError || !tenant || !tenant.plan || tenant.plan.length === 0) {
+      return null;
+    }
+
+    planData = tenant.plan[0] as Plan;
+  } else if (!subscription.plan || subscription.plan.length === 0) {
     return null;
+  } else {
+    planData = subscription.plan[0] as Plan;
   }
 
-  return plan as Plan;
+  return planData;
 }

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Product, Category, ProductImage } from '@/types';
 import type { CreateProductInput, UpdateProductInput, CreateCategoryInput, UpdateCategoryInput } from '@/lib/validation/product';
-import { deleteProductImageFile } from '@/lib/storage';
+import { deleteProductImageFile, adjustTenantInternalStorageUsage } from '@/lib/storage';
 import { listProductImages } from './images';
 
 export interface ProductFilters {
@@ -31,24 +31,6 @@ function generateSlug(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 255);
-}
-
-async function assertCategoryOwnedByTenant(tenantId: string, categoryId: string | null | undefined): Promise<void> {
-  if (!categoryId) {
-    return;
-  }
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('categories')
-    .select('id')
-    .eq('tenant_id', tenantId)
-    .eq('id', categoryId)
-    .maybeSingle();
-
-  if (error || !data) {
-    throw new Error('Invalid category selected');
-  }
 }
 
 export async function listProducts(tenantId: string, filters: ProductFilters = {}): Promise<PaginatedProducts> {
@@ -158,140 +140,124 @@ export async function getProduct(tenantId: string, productId: string): Promise<P
 export async function createProduct(tenantId: string, input: CreateProductInput): Promise<Product> {
   const supabase = await createClient();
 
-  const { data: tenant, error: tenantError } = await supabase
-    .from('tenants')
-    .select('plan_id')
-    .eq('id', tenantId)
-    .single();
-
-  if (tenantError || !tenant) {
-    throw new Error(tenantError?.message ?? 'Tenant not found');
-  }
-
-  const { data: plan, error: planError } = await supabase
-    .from('plans')
-    .select('product_limit')
-    .eq('id', tenant.plan_id)
-    .single();
-
-  if (planError || !plan) {
-    throw new Error(planError?.message ?? 'Plan not found');
-  }
-
-  if (plan.product_limit !== -1) {
-    const { count, error: countError } = await supabase
-      .from('products')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('is_active', true)
-      .eq('is_archived', false);
-
-    if (countError) {
-      throw new Error(`Failed to check product limit: ${countError.message}`);
-    }
-
-    if ((count ?? 0) >= plan.product_limit) {
-      throw new Error(
-        `Product limit reached: your current plan allows up to ${plan.product_limit} products.`
-      );
-    }
-  }
-
-  await assertCategoryOwnedByTenant(tenantId, input.category_id);
-
   const payload = {
     ...input,
     tenant_id: tenantId,
     slug: input.slug || generateSlug(input.name),
   };
 
-  const { data, error } = await supabase
-    .from('products')
-    .insert(payload)
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc('create_product', {
+    p_tenant_id: tenantId,
+    p_input: payload,
+  });
 
-  if (error || !data) {
-    throw new Error(error?.message ?? 'Failed to create product');
+  if (error || !data?.success) {
+    throw new Error(data?.error || error?.message || 'Failed to create product');
   }
 
-  return data as Product;
+  return data.product as Product;
 }
 
 export async function updateProduct(tenantId: string, productId: string, input: UpdateProductInput): Promise<Product> {
   const supabase = await createClient();
-  if (input.category_id !== undefined) {
-    await assertCategoryOwnedByTenant(tenantId, input.category_id);
+
+  const { data, error } = await supabase.rpc('update_product', {
+    p_tenant_id: tenantId,
+    p_product_id: productId,
+    p_input: input,
+  });
+
+  if (error || !data?.success) {
+    throw new Error(data?.error || error?.message || 'Failed to update product');
   }
 
-  const { data, error } = await supabase
-    .from('products')
-    .update(input)
-    .eq('tenant_id', tenantId)
-    .eq('id', productId)
-    .select()
-    .single();
-
-  if (error || !data) {
-    throw new Error(error?.message ?? 'Failed to update product');
-  }
-
-  return data as Product;
+  return data.product as Product;
 }
 
 export async function archiveProduct(tenantId: string, productId: string): Promise<Product> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('products')
-    .update({ is_active: false, is_archived: true })
-    .eq('tenant_id', tenantId)
-    .eq('id', productId)
-    .select()
-    .single();
 
-  if (error || !data) {
-    throw new Error(error?.message ?? 'Failed to archive product');
+  const { data, error } = await supabase.rpc('update_product', {
+    p_tenant_id: tenantId,
+    p_product_id: productId,
+    p_input: { is_active: false, is_archived: true },
+  });
+
+  if (error || !data?.success) {
+    throw new Error(data?.error || error?.message || 'Failed to archive product');
   }
 
-  return data as Product;
+  return data.product as Product;
 }
 
 export async function restoreProduct(tenantId: string, productId: string): Promise<Product> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('products')
-    .update({ is_active: true, is_archived: false })
-    .eq('tenant_id', tenantId)
-    .eq('id', productId)
-    .select()
-    .single();
 
-  if (error || !data) {
-    throw new Error(error?.message ?? 'Failed to restore product');
+  const { data, error } = await supabase.rpc('update_product', {
+    p_tenant_id: tenantId,
+    p_product_id: productId,
+    p_input: { is_active: true, is_archived: false },
+  });
+
+  if (error || !data?.success) {
+    throw new Error(data?.error || error?.message || 'Failed to restore product');
   }
 
-  return data as Product;
+  return data.product as Product;
 }
 
 export async function deleteProduct(tenantId: string, productId: string): Promise<void> {
   const supabase = await createClient();
 
+  // If product_images records are gone, product was already deleted (CASCADE from delete_product RPC).
+  // Return early — idempotent retry safe.
   const images = await listProductImages(tenantId, productId);
+  if (images.length === 0) {
+    return;
+  }
+
+  // Delete storage files idempotently. A file that is already gone is not an error.
+  const storageErrors: string[] = [];
   for (const image of images) {
     const { error: storageError } = await deleteProductImageFile(image.storage_path);
     if (storageError) {
-      throw new Error(`Failed to delete product image file: ${storageError.message}`);
+      const msg = storageError.message;
+      // Treat "not found" type errors as already-deleted (idempotent)
+      if (
+        !msg.includes('not found') &&
+        !msg.includes('does not exist') &&
+        !msg.includes('404') &&
+        !msg.includes('Not Found')
+      ) {
+        storageErrors.push(msg);
+      }
     }
   }
+  if (storageErrors.length > 0) {
+    throw new Error(`Failed to delete product image files: ${storageErrors.join(', ')}`);
+  }
 
-  const { error } = await supabase
-    .from('products')
-    .delete()
-    .eq('tenant_id', tenantId)
-    .eq('id', productId);
+  // Delete product via RPC (CASCADE deletes product_images rows)
+  const { data, error } = await supabase.rpc('delete_product', {
+    p_tenant_id: tenantId,
+    p_product_id: productId,
+  });
 
-  if (error) {
-    throw new Error(`Failed to delete product: ${error.message}`);
+  if (error || !data?.success) {
+    // Storage files are deleted but the product record remains.
+    // Do NOT adjust counter on the failure path — adjusting risks double decrement on retry.
+    // Reconciliation will detect and correct any counter overstatement.
+    throw new Error(data?.error || error?.message || 'Failed to delete product');
+  }
+
+  // Adjust internal storage usage for deleted image files — exactly once, only on successful RPC deletion
+  const totalBytes = images.reduce((sum, img) => sum + Math.max(0, Number(img.file_size) || 0), 0);
+  if (totalBytes > 0) {
+    const adj = await adjustTenantInternalStorageUsage(tenantId, -totalBytes, 'product_deleted_images');
+    if (!adj.success) {
+      // Counter adjustment failed — reconciliation will detect and correct the overstatement
+      console.error('Failed to adjust storage usage after product delete:', adj.error);
+    }
   }
 }
 

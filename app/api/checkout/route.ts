@@ -6,6 +6,34 @@ import { upsertCustomerFromOrder } from '@/lib/customers';
 import { sendNotification } from '@/lib/notifications';
 import { checkRateLimit, recordRateLimit } from '@/lib/rate-limit';
 
+async function getAuthoritativeOrderLimit(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string
+): Promise<number> {
+  const { data: subscription, error: subError } = await supabase
+    .from('subscriptions')
+    .select('plan_id, plan:plans!plan_id(order_limit)')
+    .eq('tenant_id', tenantId)
+    .in('status', ['active', 'trialing', 'past_due', 'suspended', 'canceled', 'expired'])
+    .order('current_period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (subError) {
+    throw new Error(`Failed to load subscription: ${subError.message}`);
+  }
+
+  if (!subscription) {
+    throw new Error('No valid subscription entitlement found for this tenant');
+  }
+
+  if (!subscription.plan || subscription.plan.length === 0) {
+    throw new Error('Subscription plan not found');
+  }
+
+  return subscription.plan[0].order_limit;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
@@ -36,17 +64,17 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient();
 
-    const { data: plan, error: planError } = await supabase
-      .from('plans')
-      .select('order_limit')
-      .eq('id', tenant.plan_id)
-      .single();
-
-    if (planError || !plan) {
-      return NextResponse.json({ error: 'Failed to resolve plan' }, { status: 500 });
+    let orderLimit: number;
+    try {
+      orderLimit = await getAuthoritativeOrderLimit(supabase, tenant.id);
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : 'Failed to resolve plan entitlement' },
+        { status: 403 }
+      );
     }
 
-    if (plan.order_limit !== -1) {
+    if (orderLimit !== -1) {
       const { count, error: countError } = await supabase
         .from('orders')
         .select('id', { count: 'exact', head: true })
@@ -56,10 +84,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Failed to check order limit' }, { status: 500 });
       }
 
-      if ((count ?? 0) >= plan.order_limit) {
+      if ((count ?? 0) >= orderLimit) {
         return NextResponse.json(
           {
-            error: `Order limit reached: your current plan allows up to ${plan.order_limit} orders.`,
+            error: `Order limit reached: your current plan allows up to ${orderLimit} orders.`,
           },
           { status: 403 }
         );
