@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runStorageReconciliation } from '@/lib/infrastructure/storage-reconciliation';
 import { recordDatabaseSnapshot } from '@/lib/infrastructure/database-monitoring';
+import { getInfrastructureOverview } from '@/lib/infrastructure/usage';
+import { alertsFromOverview, persistAndNotifyInfraAlerts } from '@/lib/infrastructure/alerts';
 import { createServiceClient } from '@/lib/supabase/admin';
 
 const MANUAL_RECONCILIATION_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
@@ -82,6 +84,12 @@ export async function POST(req: NextRequest) {
       dbSnapshot = { ok: true };
     } catch (e) {
       dbSnapshot = { ok: false, error: e instanceof Error ? e.message : 'Database snapshot failed' };
+    }
+    try {
+      const overview = await getInfrastructureOverview();
+      await persistAndNotifyInfraAlerts(alertsFromOverview(overview));
+    } catch {
+      // best-effort; do not fail scheduled reconciliation
     }
     const ok = recon.ok;
     return NextResponse.json({ ok, data: { reconciliation: recon, databaseSnapshot: dbSnapshot } }, { status: ok ? 200 : 500 });

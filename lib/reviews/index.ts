@@ -334,6 +334,49 @@ export async function getProductRatingSummary(tenantId: string, productId: strin
   };
 }
 
+export async function getProductRatingSummaries(
+  tenantId: string,
+  productIds: string[]
+): Promise<Map<string, ReviewSummary>> {
+  const summaries = new Map<string, ReviewSummary>();
+  if (productIds.length === 0) return summaries;
+
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('product_id, rating')
+    .eq('tenant_id', tenantId)
+    .in('product_id', productIds)
+    .eq('status', 'approved');
+
+  if (error) {
+    throw new Error(`Failed to fetch product rating summaries: ${error.message}`);
+  }
+
+  const grouped = new Map<string, number[]>();
+  for (const review of data ?? []) {
+    const ratings = grouped.get(review.product_id) ?? [];
+    ratings.push(Number(review.rating));
+    grouped.set(review.product_id, ratings);
+  }
+
+  for (const [productId, ratings] of grouped) {
+    const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const sum = ratings.reduce((total, rating) => {
+      distribution[rating] = (distribution[rating] || 0) + 1;
+      return total + rating;
+    }, 0);
+
+    summaries.set(productId, {
+      average_rating: Math.round((sum / ratings.length) * 10) / 10,
+      total_reviews: ratings.length,
+      distribution,
+    });
+  }
+
+  return summaries;
+}
+
 export async function getProductReviews(
   tenantId: string,
   productId: string,

@@ -18,7 +18,7 @@ export async function AboutUsSection({ config }: AboutUsSectionProps) {
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 items-center">
           <div>
-            <h2 className="text-2xl font-bold tracking-[-0.04em] text-slate-900 sm:text-3xl">
+            <h2 className="text-center text-2xl font-bold tracking-[-0.04em] text-slate-900 sm:text-left sm:text-3xl">
               {heading}
             </h2>
             {description && (

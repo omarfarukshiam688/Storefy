@@ -28,14 +28,14 @@ export default function StorefrontClientWrapper({
   return (
     <CartProvider tenantId={tenantId} tenantSlug={tenantSlug}>
       <div
-        className="min-h-screen bg-white text-slate-900"
+        className="flex min-h-screen flex-col bg-white text-slate-900"
         style={{ '--brand-primary': primaryColor } as React.CSSProperties}
       >
         <StoreHeader storeName={storeName} logoUrl={logoUrl} primaryColor={primaryColor} tenantSlug={tenantSlug} tenant={tenant} />
-        <main className="flex-1">
+        <main className="flex flex-1 flex-col">
           <PageTransition>{children}</PageTransition>
         </main>
-        <StoreFooter tenant={tenant} />
+        <StoreFooter tenant={tenant} logoUrl={logoUrl} />
         <CartDrawer />
       </div>
     </CartProvider>

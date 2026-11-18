@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 type IconComp = React.ComponentType<{ className?: string }>;
 
 type Overview = {
-  storage?: { actualUsedBytes?: number | null; internalUsedBytes?: number | null; capacityConfigured?: boolean; capacityBytes?: number | null; capacitySource?: string; capacityVerified?: boolean; remainingBytes?: number | null; usagePercent?: number | null; status?: string; reconciliationStatus?: string; lastReconciledAt?: string | null };
+  storage?: { actualUsedBytes?: number | null; internalUsedBytes?: number | null; calculatedInternalUsedBytes?: number | null; capacityConfigured?: boolean; capacityBytes?: number | null; capacitySource?: string; capacityVerified?: boolean; remainingBytes?: number | null; usagePercent?: number | null; status?: string; reconciliationStatus?: string; lastReconciledAt?: string | null };
   database?: { sizeBytes?: number | null; capacityConfigured?: boolean; capacityBytes?: number | null; remainingBytes?: number | null; usagePercent?: number | null; classification?: string; status?: string };
   tenants?: { overQuota?: number; total?: number };
   alerts?: Array<{ isActive?: boolean }>;
 };
-type TenantRow = { tenantId: string; tenantName: string; planName?: string | null; internalUsageBytes?: number | null; actualUsageBytes?: number | null; quotaBytes?: number | null; remainingBytes?: number | null; usagePercent?: number | null; status?: string };
+type TenantRow = { tenantId: string; tenantName: string; planName?: string | null; internalUsageBytes?: number | null; calculatedInternalUsageBytes?: number | null; actualUsageBytes?: number | null; quotaBytes?: number | null; remainingBytes?: number | null; usagePercent?: number | null; status?: string };
 type TableInfo = { schema: string; name: string; totalBytes: number; tableBytes: number; indexBytes: number };
 type ReconRun = { id: string; status: string; started_at?: string | null; total_objects_scanned?: number | null; discrepancy_count?: number | null; orphan_object_count?: number | null; missing_object_count?: number | null; error_message?: string | null };
 
@@ -154,8 +154,8 @@ export function InfrastructureUsageDashboard() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Actual Storage Used"
-            value={formatBytes(st?.actualUsedBytes ?? st?.internalUsedBytes)}
-            sub={st?.actualUsedBytes == null ? 'Reconciled actual unavailable; showing internal/best-effort' : `Status: ${st?.status}`}
+            value={formatBytes(st?.actualUsedBytes)}
+            sub={st?.actualUsedBytes == null ? 'Reconciled actual unavailable' : `Calc. internal: ${formatBytes(st?.calculatedInternalUsedBytes)} · Status: ${st?.status}`}
             icon={HardDrive}
           />
           <StatCard
@@ -231,7 +231,7 @@ export function InfrastructureUsageDashboard() {
           <table className="w-full text-left text-sm">
             <thead className="bg-[linear-gradient(90deg,rgba(247,243,255,0.9),rgba(240,248,255,0.8))]">
               <tr className="border-b border-violet-100 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                <th className="px-4 py-3">Tenant</th><th className="px-4 py-3">Plan</th><th className="px-4 py-3">Internal</th><th className="px-4 py-3">Actual</th><th className="px-4 py-3">Quota</th><th className="px-4 py-3">Remaining</th><th className="px-4 py-3">Usage %</th><th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Tenant</th><th className="px-4 py-3">Plan</th><th className="px-4 py-3">Internal (calc.)</th><th className="px-4 py-3">Actual</th><th className="px-4 py-3">Quota</th><th className="px-4 py-3">Remaining</th><th className="px-4 py-3">Usage %</th><th className="px-4 py-3">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -241,7 +241,7 @@ export function InfrastructureUsageDashboard() {
                 <tr key={t.tenantId} className="border-b border-slate-100 last:border-b-0">
                   <td className="px-4 py-3 font-medium text-slate-900">{t.tenantName}</td>
                   <td className="px-4 py-3 text-slate-600">{t.planName ?? '—'}</td>
-                  <td className="px-4 py-3">{formatBytes(t.internalUsageBytes)}</td>
+                  <td className="px-4 py-3">{formatBytes(t.calculatedInternalUsageBytes)}</td>
                   <td className="px-4 py-3">{t.actualUsageBytes == null ? 'Unavailable' : formatBytes(t.actualUsageBytes)}</td>
                   <td className="px-4 py-3">{formatBytes(t.quotaBytes)}</td>
                   <td className="px-4 py-3">{t.remainingBytes == null ? 'Unavailable' : formatBytes(t.remainingBytes)}</td>

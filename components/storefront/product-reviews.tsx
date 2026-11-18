@@ -138,14 +138,21 @@ export function ProductReviews({
   };
 
   return (
-    <div className="mt-16 border-t border-slate-100 bg-slate-50/50">
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-        <div className="max-w-2xl">
+    <section className="mt-8 border-t border-slate-100 pt-7">
+      <div className="mx-auto max-w-6xl">
+        <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-[-0.04em] text-slate-900 sm:text-3xl">
             Customer Reviews
           </h2>
+          {hasMore && (
+            <button type="button" onClick={handleLoadMore} className="flex min-h-10 items-center text-sm font-bold text-blue-600">
+              View All <span aria-hidden="true" className="ml-1">→</span>
+            </button>
+          )}
+        </div>
+        <div className="mt-2">
           {totalReviews > 0 && (
-            <div className="mt-3 flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
@@ -159,11 +166,8 @@ export function ProductReviews({
                   />
                 ))}
               </div>
-              <span className="text-sm font-medium text-slate-700">
-                {averageRating.toFixed(1)} out of 5
-              </span>
               <span className="text-sm text-slate-500">
-                ({totalReviews} {totalReviews === 1 ? 'review' : 'reviews'})
+                {averageRating.toFixed(1)} ({totalReviews})
               </span>
             </div>
           )}
@@ -175,12 +179,13 @@ export function ProductReviews({
         </div>
 
         {totalReviews > 0 && (
-          <div className="mt-10 space-y-4">
+          <div className="mt-5 grid grid-cols-2 gap-3">
             {reviews.map((review) => (
               <div
                 key={review.id}
-                className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5"
               >
+                <p className="text-sm font-bold text-slate-800">{review.customer_name || 'Customer'}</p>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-0.5">
                     {Array.from({ length: 5 }).map((_, i) => (
@@ -203,7 +208,7 @@ export function ProductReviews({
                     }).format(new Date(review.created_at))}
                   </span>
                 </div>
-                <p className="mt-3 text-sm text-slate-700 whitespace-pre-wrap">
+                <p className="mt-2 line-clamp-4 text-sm leading-5 text-slate-700 whitespace-pre-wrap">
                   {review.review_text}
                 </p>
               </div>
@@ -335,6 +340,6 @@ export function ProductReviews({
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

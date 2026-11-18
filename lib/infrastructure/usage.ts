@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createServiceClient } from '@/lib/supabase/admin';
+import { getCalculatedInternalUsageByTenant } from './internal-usage';
 import { getCapacityConfigs } from './capacity';
 import { getDatabaseMonitoring } from './database-monitoring';
 
@@ -12,6 +13,7 @@ export type InfrastructureOverview = {
     capacityVerified: boolean;
     actualUsedBytes: number | null;
     internalUsedBytes: number | null;
+    calculatedInternalUsedBytes: number | null;
     remainingBytes: number | null;
     usagePercent: number | null;
     status: 'ok' | 'unavailable' | 'stale' | 'error';
@@ -50,6 +52,7 @@ export type TenantStorageRow = {
   tenantName: string;
   planName: string | null;
   internalUsageBytes: number | null;
+  calculatedInternalUsageBytes: number | null;
   actualUsageBytes: number | null;
   quotaBytes: number | null;
   remainingBytes: number | null;
@@ -84,6 +87,7 @@ export async function getInfrastructureOverview(): Promise<InfrastructureOvervie
   // Aggregate reconciled/internal storage from tenant_storage_usage if available
   let totalActual: number | null = null;
   let totalInternal: number | null = null;
+  let totalCalculatedInternal: number | null = 0;
   let lastReconciledAt: string | null = null;
   let reconciliationStatus: string | null = null;
   let storageStatus: InfrastructureOverview['storage']['status'] = 'unavailable';
@@ -109,6 +113,18 @@ export async function getInfrastructureOverview(): Promise<InfrastructureOvervie
     }
   }
 
+  // Calculated internal usage (shared with reconciliation): tracked DB record bytes
+  // plus referenced-but-untracked branding asset bytes. Distinct from the persisted
+  // internal_usage_bytes counter.
+  try {
+    const calculation = await getCalculatedInternalUsageByTenant();
+    for (const entry of calculation.byTenant.values()) {
+      totalCalculatedInternal += entry.calculatedBytes;
+    }
+  } catch {
+    totalCalculatedInternal = null;
+  }
+
   if (!usageErr && usageRows && usageRows.length >= 0) {
     let aSum = 0;
     let iSum = 0;
@@ -125,9 +141,9 @@ export async function getInfrastructureOverview(): Promise<InfrastructureOvervie
         reconciliationStatus = r.reconciliation_status;
       }
       const meta = tenantMeta.get(r.tenant_id);
-      const usedForQuota = r.actual_usage_bytes != null ? Math.max(0, Number(r.actual_usage_bytes) || 0) : internal;
-      if (meta?.quota != null && meta.quota > 0 && usedForQuota > meta.quota) overQuota++;
-      if (!highest || usedForQuota > highest.usedBytes) {
+      const usedForQuota = r.actual_usage_bytes != null ? Math.max(0, Number(r.actual_usage_bytes) || 0) : null;
+      if (meta?.quota != null && meta.quota > 0 && usedForQuota != null && usedForQuota > meta.quota) overQuota++;
+      if (usedForQuota != null && (!highest || usedForQuota > highest.usedBytes)) {
         highest = { tenantId: r.tenant_id, name: meta?.name ?? r.tenant_id, usedBytes: usedForQuota };
       }
     }
@@ -138,15 +154,9 @@ export async function getInfrastructureOverview(): Promise<InfrastructureOvervie
     storageStatus = 'unavailable';
   }
 
-  // Fallback: if no usage rows, estimate from record file_size sums (best-effort, no reconciliation)
+  // Fallback: if no usage rows, actual usage is unavailable. Calculated internal
+  // (from the shared helper above) is already set if the helper succeeded.
   if (!usageErr && (!usageRows || usageRows.length === 0)) {
-    const [{ data: p }, { data: s }] = await Promise.all([
-      supabase.from('product_images').select('file_size'),
-      supabase.from('store_assets').select('file_size'),
-    ]);
-    const sumP = ((p ?? []) as Array<{ file_size: number }>).reduce((acc, r) => acc + (Number(r.file_size) || 0), 0);
-    const sumS = ((s ?? []) as Array<{ file_size: number }>).reduce((acc, r) => acc + (Number(r.file_size) || 0), 0);
-    totalInternal = sumP + sumS;
     totalActual = null;
     storageStatus = 'stale';
     reconciliationStatus = 'never_run';
@@ -155,7 +165,7 @@ export async function getInfrastructureOverview(): Promise<InfrastructureOvervie
   const { count: tenantCount } = await supabase.from('tenants').select('id', { count: 'exact', head: true });
 
   const capBytes = storageCap?.isConfigured ? storageCap.capacityBytes : null;
-  const usedForPct = totalActual ?? totalInternal;
+  const usedForPct = totalActual;
   const remainingBytes = capBytes != null && usedForPct != null ? Math.max(capBytes - usedForPct, 0) : null;
   const usagePercent = capBytes != null && capBytes > 0 && usedForPct != null ? pct(usedForPct, capBytes) : null;
 
@@ -188,6 +198,7 @@ export async function getInfrastructureOverview(): Promise<InfrastructureOvervie
       capacityVerified: Boolean(storageCap?.verified),
       actualUsedBytes: totalActual,
       internalUsedBytes: totalInternal,
+      calculatedInternalUsedBytes: totalCalculatedInternal,
       remainingBytes,
       usagePercent,
       status: storageStatus,
@@ -232,13 +243,23 @@ export async function getTenantStorageUsageTable(): Promise<TenantStorageRow[]> 
     .in('tenant_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
   const usageMap = new Map(((usage ?? []) as Array<Record<string, unknown>>).map((u) => [String(u.tenant_id), u]));
 
+  // Calculated internal usage per tenant (shared with reconciliation).
+  let calculationByTenant: Map<string, { trackedBytes: number; referencedUntrackedBytes: number; calculatedBytes: number }> | null = null;
+  try {
+    const calculation = await getCalculatedInternalUsageByTenant();
+    calculationByTenant = calculation.byTenant;
+  } catch {
+    calculationByTenant = null;
+  }
+
   return tenantRows.map((t) => {
     const plan = Array.isArray(t.plan) ? t.plan[0] : t.plan;
     const quota = plan?.storage_limit_bytes ?? null;
     const u = usageMap.get(t.id);
     const internal = u ? Math.max(0, Number(u.internal_usage_bytes) || 0) : null;
     const actual = u && u.actual_usage_bytes != null ? Math.max(0, Number(u.actual_usage_bytes) || 0) : null;
-    const used = actual ?? internal;
+    const calculatedInternal = calculationByTenant?.get(t.id)?.calculatedBytes ?? null;
+    const used = actual;
     const remaining = quota != null && used != null ? Math.max(quota - used, 0) : null;
     const usagePercent = quota != null && quota > 0 && used != null ? pct(used, quota) : null;
     return {
@@ -246,6 +267,7 @@ export async function getTenantStorageUsageTable(): Promise<TenantStorageRow[]> 
       tenantName: t.name,
       planName: plan?.name ?? null,
       internalUsageBytes: internal,
+      calculatedInternalUsageBytes: calculatedInternal,
       actualUsageBytes: actual,
       quotaBytes: quota,
       remainingBytes: remaining,

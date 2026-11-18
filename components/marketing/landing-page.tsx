@@ -5,7 +5,6 @@ import * as Accordion from '@radix-ui/react-accordion';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  ArrowRight,
   Building2,
   Check,
   ChevronDown,
@@ -18,9 +17,7 @@ import {
   Menu,
   Package,
   ShieldCheck,
-  ShoppingBag,
   ShoppingCart,
-  Sparkles,
   Store,
   Tag,
   Users,
@@ -30,6 +27,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, PremiumCard } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { LandingHero } from './landing-hero';
 
 const navItems = [
   { label: 'Features', href: '#features' },
@@ -282,18 +280,32 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <div
       className={cn(
-        'fixed inset-0 z-50 bg-slate-950/25 backdrop-blur-sm transition-all duration-200 lg:hidden',
+        'fixed inset-0 z-50 bg-transparent transition-all duration-200 motion-reduce:transition-none lg:hidden',
         open
-          ? 'pointer-events-auto opacity-100 visible'
-          : 'pointer-events-none opacity-0 invisible'
+          ? 'pointer-events-auto visible opacity-100'
+          : 'pointer-events-none invisible opacity-0'
       )}
       aria-hidden={!open}
     >
+      <button
+        type="button"
+        className="absolute inset-0 h-full w-full cursor-default bg-slate-950/45 focus-visible:outline-none"
+        onClick={onClose}
+        aria-label="Close navigation"
+        tabIndex={open ? 0 : -1}
+      />
       <div
         className={cn(
-          'absolute inset-y-0 left-0 w-[82%] max-w-sm border-r border-white/30 bg-white/90 p-5 shadow-2xl backdrop-blur-xl transition-transform duration-200',
+          'absolute inset-y-0 left-0 h-dvh w-[82%] max-w-sm overflow-y-auto border-r border-violet-100 bg-white px-5 pb-6 shadow-2xl transition-transform duration-200 motion-reduce:transition-none',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
+        style={{
+          paddingTop: 'max(1.25rem, env(safe-area-inset-top))',
+          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Main navigation"
       >
         <div className="flex items-center justify-between pb-4">
           <Logo />
@@ -303,7 +315,7 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
             onClick={onClose}
             aria-label="Close menu"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </Button>
         </div>
 
@@ -313,7 +325,7 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
               key={item.href}
               href={item.href}
               onClick={onClose}
-              className="flex items-center justify-between rounded-xl border border-transparent px-4 py-3.5 text-base font-medium text-slate-700 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-slate-900 touch-manipulation select-none"
+              className="flex min-h-12 items-center justify-between rounded-xl border border-transparent px-4 py-3.5 text-base font-medium text-slate-800 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-slate-900 touch-manipulation select-none"
             >
               {item.label}
               <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -337,28 +349,25 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
-function FloatingDashCard({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-2xl border border-slate-200/80 bg-white/85 p-3 shadow-[0_18px_40px_-20px_rgba(76,29,149,0.4)] backdrop-blur-sm',
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
 export function LandingPage() {
   const [activeTab, setActiveTab] = React.useState<ShowcaseTab>('Products');
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [isMenuOpen]);
 
   React.useEffect(() => {
     const handleAnchorClick = (e: MouseEvent) => {
@@ -439,214 +448,7 @@ export function LandingPage() {
       <MobileNav open={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
       <main className="overflow-x-hidden">
-        <section className="relative isolate px-4 pb-20 pt-10 sm:px-6 lg:px-8 lg:pb-28 lg:pt-14">
-          <div className="absolute inset-x-0 top-0 -z-10 h-[560px] bg-[radial-gradient(circle_at_top,_rgba(167,139,250,0.35),_transparent_50%),radial-gradient(circle_at_80%_20%,_rgba(125,211,252,0.28),_transparent_35%)]" />
-
-          <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="animate-slide-up">
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50/80 px-3 py-1.5 text-xs font-medium tracking-[0.18em] text-violet-700 uppercase shadow-sm">
-                <Sparkles className="h-3.5 w-3.5" />
-                Built for Bangladeshi food businesses
-              </div>
-
-              <h1 className="max-w-xl text-4xl font-bold tracking-[-0.06em] text-slate-900 sm:text-5xl lg:text-6xl">
-                Turn Your Facebook Business Into a Real Online Store.
-              </h1>
-
-              <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-                Storefy gives small businesses a professional storefront and a
-                simple dashboard to manage products, orders, and their growing
-                online business — without building everything from scratch.
-              </p>
-
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Button asChild size="lg" className="group">
-                  <Link href="/auth/signup">
-                    Start Free
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="lg">
-                  <Link href="#how-it-works">See How It Works</Link>
-                </Button>
-              </div>
-
-              <div className="mt-8 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5">
-                  <Check className="h-4 w-4 text-violet-600" />
-                  Products
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5">
-                  <Check className="h-4 w-4 text-violet-600" />
-                  Orders
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5">
-                  <Check className="h-4 w-4 text-violet-600" />
-                  Storefront
-                </span>
-              </div>
-            </div>
-
-            <div className="relative mx-auto w-full max-w-[640px] animate-slide-in-right">
-              <div className="absolute -left-10 top-12 h-32 w-32 rounded-full bg-violet-300/30 blur-3xl" />
-              <div className="absolute -right-6 bottom-10 h-24 w-24 rounded-full bg-sky-300/30 blur-3xl" />
-
-              <div className="relative overflow-hidden rounded-[30px] border border-violet-200/80 bg-white/75 p-3 shadow-[0_35px_80px_-30px_rgba(76,29,149,0.35)] backdrop-blur-xl">
-                <div className="rounded-[22px] border border-slate-200/80 bg-slate-50/80 p-3 sm:p-4">
-                  <div className="mb-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-violet-600 via-indigo-500 to-sky-500 text-white shadow-sm">
-                        <Store className="h-3.5 w-3.5" />
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">
-                          Workspace
-                        </p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          Dhaka Kitchen House
-                        </p>
-                      </div>
-                    </div>
-                    <div className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-700">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                      Live
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-[180px_1fr]">
-                    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
-                      <div className="flex items-center gap-2 rounded-xl bg-violet-50 p-2 text-xs font-medium text-violet-700">
-                        <LayoutDashboard className="h-3.5 w-3.5" />
-                        Overview
-                      </div>
-                      {['Products', 'Orders', 'Storefront', 'Settings'].map(
-                        (item, index) => (
-                          <div
-                            key={item}
-                            className={cn(
-                              'flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-slate-600',
-                              index === 0 &&
-                                'bg-violet-50 font-medium text-violet-700'
-                            )}
-                          >
-                            <span className="h-2 w-2 rounded-full bg-slate-300" />
-                            {item}
-                          </div>
-                        )
-                      )}
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">
-                              Catalog
-                            </p>
-                            <h3 className="mt-1 text-lg font-semibold text-slate-900">
-                              Best sellers
-                            </h3>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2 text-xs"
-                          >
-                            View all
-                          </Button>
-                        </div>
-
-                        <div className="mt-4 space-y-2">
-                          {[
-                            ['Mango Pickle', '৳290'],
-                            ['Jalpai Pickle', '৳320'],
-                            ['Amsotto', '৳250'],
-                          ].map(([name, price]) => (
-                            <div
-                              key={name}
-                              className="flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-2"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-100 to-sky-100 text-violet-600">
-                                  <ShoppingBag className="h-4 w-4" />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium text-slate-800">
-                                    {name}
-                                  </p>
-                                  <p className="text-[10px] uppercase tracking-[0.12em] text-slate-400">
-                                    Active
-                                  </p>
-                                </div>
-                              </div>
-                              <span className="text-sm font-semibold text-slate-800">
-                                {price}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">
-                            Orders
-                          </p>
-                          <p className="mt-2 text-2xl font-bold tracking-[-0.05em] text-slate-900">
-                            86
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            This week
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">
-                            Storefront
-                          </p>
-                          <p className="mt-2 text-2xl font-bold tracking-[-0.05em] text-slate-900">
-                            Ready
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            Live on web
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <FloatingDashCard className="absolute -left-6 top-16 hidden w-40 sm:block">
-                <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-slate-400">
-                  Order #1062
-                </p>
-                <div className="mt-2 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">
-                      Mango Pickle
-                    </p>
-                    <p className="text-xs text-slate-500">Processing</p>
-                  </div>
-                  <div className="rounded-full bg-violet-100 px-2 py-1 text-[10px] font-semibold text-violet-700">
-                    New
-                  </div>
-                </div>
-              </FloatingDashCard>
-
-              <FloatingDashCard className="absolute -bottom-5 right-2 hidden w-44 sm:block">
-                <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-slate-400">
-                  Storefront
-                </p>
-                <div className="mt-2 space-y-2">
-                  <div className="h-2 w-full rounded-full bg-slate-200">
-                    <div className="h-2 w-[76%] rounded-full bg-gradient-to-r from-violet-500 to-sky-500" />
-                  </div>
-                  <p className="text-xs text-slate-500">Brand-ready layout</p>
-                </div>
-              </FloatingDashCard>
-            </div>
-          </div>
-        </section>
+        <LandingHero />
 
         <section className="px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-6xl">

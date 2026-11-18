@@ -15,6 +15,7 @@ interface ImageGalleryProps {
 export function ImageGallery({ images, productName }: ImageGalleryProps) {
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [imgErrors, setImgErrors] = React.useState<Set<number>>(new Set());
+  const touchStartX = React.useRef<number | null>(null);
 
   const validImages = images.filter((img) => img.url);
   const currentImage = validImages[selectedIndex] || null;
@@ -43,13 +44,27 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
   return (
     <div className="space-y-4">
-      <div className="relative aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+      <div
+        className="relative aspect-[5/4] overflow-hidden rounded-[22px] bg-slate-50 sm:aspect-square"
+        onTouchStart={(event) => { touchStartX.current = event.touches[0]?.clientX ?? null; }}
+        onTouchEnd={(event) => {
+          if (touchStartX.current === null) return;
+          const endX = event.changedTouches[0]?.clientX;
+          if (typeof endX !== 'number') return;
+          const distance = endX - touchStartX.current;
+          if (Math.abs(distance) > 45) {
+            if (distance > 0) handlePrevious();
+            else handleNext();
+          }
+          touchStartX.current = null;
+        }}
+      >
         {currentImage && !imgErrors.has(selectedIndex) ? (
           <Image
             src={currentImage.url!}
             alt={currentImage.alt_text || productName}
             fill
-            className="object-cover"
+            className="object-contain"
             priority
             sizes="(max-width: 1024px) 100vw, 50vw"
             onError={() => handleError(selectedIndex)}
@@ -60,6 +75,12 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               {productName.charAt(0).toUpperCase()}
             </span>
           </div>
+        )}
+
+        {validImages.length > 1 && (
+          <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-950/55 px-3 py-1 text-xs font-bold text-white">
+            {selectedIndex + 1} / {validImages.length}
+          </span>
         )}
 
         {validImages.length > 1 && (

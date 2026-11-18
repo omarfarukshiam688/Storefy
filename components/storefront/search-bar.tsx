@@ -8,9 +8,11 @@ import { Input } from '@/components/ui/input';
 
 interface SearchBarProps {
   className?: string;
+  tenantSlug?: string;
+  placeholder?: string;
 }
 
-export function SearchBar({ className }: SearchBarProps) {
+export function SearchBar({ className, tenantSlug, placeholder = 'Search products...' }: SearchBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
@@ -32,6 +34,12 @@ export function SearchBar({ className }: SearchBarProps) {
       } else {
         params.delete('q');
       }
+      if (tenantSlug && window.location.pathname === `/s/${tenantSlug}`) {
+        if (value.trim()) {
+          router.replace(`/s/${tenantSlug}/products?q=${encodeURIComponent(value.trim())}`, { scroll: false });
+        }
+        return;
+      }
       const newUrl = value.trim() ? `?${params.toString()}` : window.location.pathname;
       router.replace(newUrl, { scroll: false });
     }, 300);
@@ -39,13 +47,13 @@ export function SearchBar({ className }: SearchBarProps) {
 
   return (
     <div className={cn('relative', className)}>
-      <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
       <Input
         type="text"
-        placeholder="Search products..."
+        placeholder={placeholder}
         value={query}
         onChange={handleChange}
-        className="h-11 pl-10 pr-4"
+        className="h-11 rounded-full border-0 bg-slate-100 pl-10 pr-4 text-[13px] shadow-none md:h-11"
       />
     </div>
   );

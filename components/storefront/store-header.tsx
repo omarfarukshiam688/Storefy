@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/lib/cart/cart-context';
 import type { Tenant } from '@/types';
+import { SearchBar } from './search-bar';
 
 interface StoreHeaderProps {
   storeName: string;
@@ -21,6 +22,19 @@ export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111', tena
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const pathname = usePathname();
   const { cartCount, openCart } = useCart();
+  React.useEffect(() => {
+    if (!isMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [isMenuOpen]);
 
   const homePath = `/s/${tenantSlug}`;
   const productsPath = `/s/${tenantSlug}/products`;
@@ -44,8 +58,8 @@ export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111', tena
   } as React.CSSProperties;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl" style={headerStyle}>
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/95 backdrop-blur-xl" style={headerStyle}>
+      <div className="mx-auto hidden max-w-6xl items-center justify-between px-4 py-3 sm:px-6 md:flex lg:px-8">
         <Link
           href={homePath}
           className="flex items-center gap-2.5"
@@ -97,35 +111,51 @@ export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111', tena
           </Button>
         </nav>
 
-        <div className="flex items-center gap-1 md:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={openCart}
-            aria-label="Open cart"
-            className="relative"
-          >
-            <ShoppingCart className="h-5 w-5" />
-            {cartCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                {cartCount > 99 ? '99+' : cartCount}
-              </span>
-            )}
-          </Button>
+      </div>
+
+      <div className="flex h-[64px] items-center gap-2 px-3 md:hidden">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsMenuOpen(true)}
             aria-label="Open menu"
+            className="h-11 w-10 shrink-0"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-7 w-7 text-slate-800" />
           </Button>
-        </div>
+          <SearchBar
+            tenantSlug={tenantSlug}
+            placeholder="Search Products, Brands & More..."
+            className="min-w-0 flex-1"
+          />
+          <div className="flex w-10 justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={openCart}
+            aria-label="Open cart"
+            className="relative h-11 w-11"
+          >
+            <ShoppingCart className="h-7 w-7 text-slate-800" />
+            {cartCount > 0 && (
+              <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white ring-2 ring-white">
+                {cartCount > 99 ? '99+' : cartCount}
+              </span>
+            )}
+          </Button>
+          </div>
       </div>
 
       {isMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/25 backdrop-blur-sm md:hidden">
-          <div className="absolute inset-y-0 right-0 w-[82%] max-w-sm border-l border-white/30 bg-white/90 p-5 shadow-2xl backdrop-blur-xl">
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/45 md:hidden"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIsMenuOpen(false);
+          }}
+        >
+          <div className="absolute inset-y-0 left-0 h-dvh w-[82%] max-w-sm overflow-y-auto bg-white shadow-2xl animate-in slide-in-from-left" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))', paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
+            <div className="px-5">
             <div className="flex items-center justify-between pb-4">
               <span className="text-lg font-semibold tracking-[-0.03em] text-slate-900">
                 Menu
@@ -147,7 +177,7 @@ export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111', tena
                   href={link.href}
                   onClick={() => setIsMenuOpen(false)}
                   className={cn(
-                    'flex items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium transition-colors',
+                    'flex min-h-12 items-center justify-between rounded-xl border border-transparent px-3 py-3 text-base font-medium transition-colors',
                     isActive(link.href)
                       ? 'border-violet-200 bg-violet-50 text-violet-700'
                       : 'text-slate-700 hover:border-violet-200 hover:bg-violet-50'
@@ -157,6 +187,7 @@ export function StoreHeader({ storeName, logoUrl, primaryColor = '#111111', tena
                 </Link>
               ))}
             </nav>
+            </div>
           </div>
         </div>
       )}

@@ -15,7 +15,7 @@ export function WhyChooseUsSection({ config }: WhyChooseUsSectionProps) {
     <section className="border-t border-slate-100 bg-slate-50/50">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <div className="max-w-2xl">
-          <h2 className="text-2xl font-bold tracking-[-0.04em] text-slate-900 sm:text-3xl">
+          <h2 className="text-center text-2xl font-bold tracking-[-0.04em] text-slate-900 sm:text-left sm:text-3xl">
             {heading}
           </h2>
           {description && (

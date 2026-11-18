@@ -1,6 +1,12 @@
 import 'server-only';
 
 import { createServiceClient } from '@/lib/supabase/admin';
+import {
+  getCalculatedInternalUsageByTenant,
+  listBucketObjectsRecursive,
+  objectSize,
+  parseTenantIdFromPath,
+} from '@/lib/infrastructure/internal-usage';
 
 export type ReconciliationRunResult = {
   ok: boolean;
@@ -29,85 +35,11 @@ type StorageObjectRow = {
   metadata?: { size?: number | string } | null;
 };
 
-function parseTenantIdFromPath(name: string): string | null {
-  const m = /^tenant\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i.exec(name);
-  return m?.[1] ?? null;
-}
-
-function objectSize(obj: StorageObjectRow): number {
-  const raw = obj.metadata?.size;
-  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0) return Math.floor(raw);
-  throw new Error(
-    `Storage object ${obj.name} (${obj.id ?? 'unknown'}) has invalid or missing size metadata`
-  );
-}
-
 const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000; // renew every 2 minutes
-
-async function listBucketObjectsRecursive(
-  supabase: ReturnType<typeof createServiceClient>,
-  bucketId: string,
-  folderPath: string
-): Promise<StorageObjectRow[]> {
-  const out: StorageObjectRow[] = [];
-  const pageSize = 1000;
-  let offset = 0;
-
-  for (;;) {
-    const { data, error } = await supabase.storage.from(bucketId).list(folderPath, {
-      limit: pageSize,
-      offset,
-      sortBy: { column: 'name', order: 'asc' },
-    });
-
-    if (error)
-      throw new Error(
-        `Failed to list storage objects in ${bucketId}/${folderPath || ''}: ${error.message}`
-      );
-
-    const items = data ?? [];
-
-    for (const item of items) {
-      const fullPath = folderPath ? `${folderPath}/${item.name}` : item.name;
-
-      // Supabase Storage API discriminator: item.id === null means folder,
-      // item.id !== null (a UUID string) means file.
-      if (item.id === null) {
-        // It's a folder - recurse into it to find nested objects
-        const folderObjects = await listBucketObjectsRecursive(supabase, bucketId, fullPath);
-        out.push(...folderObjects);
-      } else {
-        // It's a file - require valid size metadata
-        const metadata = item.metadata;
-        const rawSize = metadata?.size;
-
-        if (typeof rawSize !== 'number' || !Number.isFinite(rawSize) || rawSize < 0) {
-          throw new Error(
-            `File ${fullPath} in bucket ${bucketId} has invalid or missing size metadata: ${JSON.stringify(
-              rawSize
-            )}`
-          );
-        }
-
-        out.push({
-          id: item.id,
-          bucket_id: bucketId,
-          name: fullPath,
-          metadata: { size: rawSize },
-        });
-      }
-    }
-
-    if (items.length < pageSize) break;
-    offset += pageSize;
-  }
-
-  return out;
-}
 
 async function fetchAllBucketObjects(bucketId: string): Promise<StorageObjectRow[]> {
   const supabase = createServiceClient();
-  return listBucketObjectsRecursive(supabase, bucketId, '');
+  return listBucketObjectsRecursive(supabase, bucketId, undefined);
 }
 
 async function renewLease(
@@ -285,52 +217,36 @@ export async function runStorageReconciliation(input?: {
 
     assertOwnership();
 
-    // Known DB records (authoritative mapping for tenant-owned tracked assets)
-    const [{ data: productRows, error: productErr }, { data: storeRows, error: storeErr }] = await Promise.all([
-      supabase.from('product_images').select('tenant_id,storage_path,file_size'),
-      supabase.from('store_assets').select('tenant_id,storage_path,file_size'),
-    ]);
-    if (productErr) throw new Error(`Failed to read product_images: ${productErr.message}`);
-    if (storeErr) throw new Error(`Failed to read store_assets: ${storeErr.message}`);
-
+    // Known DB records + referenced branding bytes (shared with dashboard usage API).
+    // calculatedBytes = tracked DB record bytes (product_images + store_assets)
+    //   + referenced-but-untracked branding asset bytes (hero/about config image_path,
+    //   logo/favicon settings) whose sizes come from storage.
+    const calculation = await getCalculatedInternalUsageByTenant();
     const dbByTenant = new Map<string, { paths: Set<string>; bytes: number }>();
-    const dbPathsByBucket = new Map<string, Set<string>>();
-    dbPathsByBucket.set('product-images', new Set());
-    dbPathsByBucket.set('store-assets', new Set());
-
-    for (const row of (productRows ?? []) as Array<{ tenant_id: string; storage_path: string; file_size: number }>) {
-      const t = row.tenant_id;
-      if (!dbByTenant.has(t)) dbByTenant.set(t, { paths: new Set(), bytes: 0 });
-      const entry = dbByTenant.get(t)!;
-      entry.paths.add(row.storage_path);
-      entry.bytes += Math.max(0, Number(row.file_size) || 0);
-      dbPathsByBucket.get('product-images')!.add(row.storage_path);
+    for (const [tenantId, entry] of calculation.byTenant) {
+      dbByTenant.set(tenantId, { paths: new Set(), bytes: entry.trackedBytes });
     }
-    for (const row of (storeRows ?? []) as Array<{ tenant_id: string; storage_path: string; file_size: number }>) {
-      const t = row.tenant_id;
-      if (!dbByTenant.has(t)) dbByTenant.set(t, { paths: new Set(), bytes: 0 });
-      const entry = dbByTenant.get(t)!;
-      entry.paths.add(row.storage_path);
-      entry.bytes += Math.max(0, Number(row.file_size) || 0);
-      dbPathsByBucket.get('store-assets')!.add(row.storage_path);
-    }
+    const dbPathsByBucket = calculation.dbPathsByBucket;
+    const referencedPaths = calculation.referencedPaths;
 
     // Orphans: in storage but no DB record (tracked buckets only)
     for (const bucket of ['product-images', 'store-assets'] as const) {
       const actualSet = actualPathsByBucket.get(bucket)!;
       const dbSet = dbPathsByBucket.get(bucket)!;
       for (const path of actualSet) {
-        if (!dbSet.has(path)) {
-          orphanObjectCount++;
-          const tenantId = parseTenantIdFromPath(path);
-          discrepancies.push({
-            tenant_id: tenantId,
-            bucket_id: bucket,
-            storage_path: path,
-            discrepancy_type: 'orphan_object',
-            details: { reason: 'Storage object exists without corresponding application record' },
-          });
-        }
+        if (dbSet.has(path)) continue;
+        // Referenced branding assets (hero/about/config image_path, logo/favicon/settings)
+        // are live objects referenced by tenant config even without a store_assets record.
+        if (bucket === 'store-assets' && referencedPaths.has(path)) continue;
+        orphanObjectCount++;
+        const tenantId = parseTenantIdFromPath(path);
+        discrepancies.push({
+          tenant_id: tenantId,
+          bucket_id: bucket,
+          storage_path: path,
+          discrepancy_type: 'orphan_object',
+          details: { reason: 'Storage object exists without corresponding application record' },
+        });
       }
     }
     // Missing: DB record but object absent in storage
@@ -375,16 +291,18 @@ export async function runStorageReconciliation(input?: {
 
     const nowIso = new Date().toISOString();
 
-    // Reconciliation records ACTUAL usage independently. Internal counter is managed
-    // atomically by upload/delete/replace operations and must NOT be overwritten here.
+    // Authoritative internal usage = tracked DB record bytes (product_images + store_assets)
+    // plus referenced-but-untracked branding assets (hero/about config image_path,
+    // logo/favicon settings) whose sizes come from storage. The persisted counter is
+    // intentionally NOT written here; reconciliation only reports internal_mismatch
+    // discrepancies so that upload/delete/finalize accounting remains the sole owner
+    // of internal_usage_bytes and no read-then-write race can occur.
     for (const tenantId of tenantIds) {
       assertOwnership();
 
       const actual = actualByTenant.get(tenantId) ?? 0;
-      const counter = internalCounterByTenant.get(tenantId);
-      const internalFromCounter = counter?.internal ?? null;
-      const internalFromRecords = dbByTenant.get(tenantId)?.bytes ?? 0;
-      const internal = internalFromCounter ?? internalFromRecords;
+      const internalFromRecords = calculation.byTenant.get(tenantId)?.calculatedBytes ?? 0;
+      const internal = internalFromRecords;
       totalInternalBytes += internal;
 
       const delta = internal - actual;
@@ -398,7 +316,7 @@ export async function runStorageReconciliation(input?: {
           internal_bytes: internal,
           actual_bytes: actual,
           delta_bytes: delta,
-          details: { internal_source: internalFromCounter != null ? 'counter' : 'db_file_size_sum' },
+          details: { internal_source: 'db_file_size_sum' },
         });
       }
 
@@ -494,7 +412,7 @@ export async function runStorageReconciliation(input?: {
     stopHeartbeat();
 
     // Complete the run, presenting the lock token so the RPC verifies ownership
-    const { error: completeError } = await supabase.rpc('complete_storage_reconciliation_run', {
+    const { data: completeData, error: completeError } = await supabase.rpc('complete_storage_reconciliation_run', {
       p_run_id: runId,
       p_status: 'succeeded',
       p_total_objects_scanned: objectsScanned,
@@ -512,6 +430,12 @@ export async function runStorageReconciliation(input?: {
     if (completeError) {
       throw new Error(`Failed to complete reconciliation run: ${completeError.message}`);
     }
+    const completeRes = (completeData ?? {}) as { success?: boolean; error_code?: string; error?: string };
+    if (!completeRes.success) {
+      throw new Error(
+        completeRes.error ?? `Failed to complete reconciliation run (${completeRes.error_code ?? 'UNKNOWN'})`
+      );
+    }
 
     return { ok: true, runId, status: 'succeeded', lockToken, stats };
   } catch (e) {
@@ -525,7 +449,7 @@ export async function runStorageReconciliation(input?: {
     // If ownership was lost, do NOT attempt to complete — the new owner will handle it.
     if (!ownershipLost) {
       try {
-        await supabase.rpc('complete_storage_reconciliation_run', {
+        const { data: failData, error: failError } = await supabase.rpc('complete_storage_reconciliation_run', {
           p_run_id: runId,
           p_status: 'failed',
           p_total_objects_scanned: objectsScanned,
@@ -540,9 +464,20 @@ export async function runStorageReconciliation(input?: {
           p_details: {},
           p_lock_token: lockToken,
         });
-      } catch {
+        if (failError) {
+          console.error(`Failed to mark reconciliation run ${runId} as failed: ${failError.message}`);
+        } else {
+          const failRes = (failData ?? {}) as { success?: boolean; error_code?: string; error?: string };
+          if (!failRes.success) {
+            console.error(
+              `Failed to mark reconciliation run ${runId} as failed: ${failRes.error ?? failRes.error_code ?? 'UNKNOWN'}`
+            );
+          }
+        }
+      } catch (completeErr) {
         // If completion fails, the lease will expire automatically (10-minute TTL)
         // allowing a future run to recover the stale lock.
+        console.error(`Failed to mark reconciliation run ${runId} as failed:`, completeErr);
       }
     }
 

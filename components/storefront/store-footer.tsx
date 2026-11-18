@@ -6,9 +6,10 @@ import type { Tenant } from '@/types';
 
 interface StoreFooterProps {
   tenant: Tenant;
+  logoUrl: string | null;
 }
 
-export function StoreFooter({ tenant }: StoreFooterProps) {
+export function StoreFooter({ tenant, logoUrl }: StoreFooterProps) {
   const settings = tenant.settings as Record<string, unknown> | null;
   const description = settings?.description as string | undefined;
   const contactEmail = settings?.contact_email as string | undefined;
@@ -23,9 +24,17 @@ export function StoreFooter({ tenant }: StoreFooterProps) {
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-3">
           <div className="lg:pr-8">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-sky-500 text-white shadow-sm">
-                <Store className="h-5 w-5" />
-              </div>
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={`${tenant.name} logo`}
+                  className="max-h-10 max-w-44 object-contain"
+                />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-sky-500 text-white shadow-sm">
+                  <Store className="h-5 w-5" />
+                </div>
+              )}
               <span className="text-lg font-semibold tracking-[-0.03em] text-slate-900">
                 {tenant.name}
               </span>
