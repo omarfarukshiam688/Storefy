@@ -5,19 +5,23 @@ import * as Accordion from '@radix-ui/react-accordion';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  Building2,
+  BarChart3,
   Check,
+  CreditCard,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Facebook,
   Globe,
+  Image as ImageIcon,
   Instagram,
   LayoutDashboard,
   Mail,
   Menu,
+  Palette,
   Package,
-  ShieldCheck,
   ShoppingCart,
+  Star,
   Store,
   Tag,
   Users,
@@ -25,247 +29,71 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Card, PremiumCard } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import type { Plan } from '@/types';
 import { LandingHero } from './landing-hero';
-
-const navItems = [
-  { label: 'Features', href: '#features' },
-  { label: 'How it works', href: '#how-it-works' },
-  { label: 'Pricing', href: '#pricing' },
-  { label: 'FAQ', href: '#faq' },
-];
-
-const problemCards = [
-  {
-    index: '01',
-    title: 'Orders Everywhere',
-    description:
-      'Orders scattered across messages, comments and notes become harder to keep track of as your business grows.',
-  },
-  {
-    index: '02',
-    title: 'Manual Product Management',
-    description:
-      'Managing products manually becomes time-consuming when your catalog starts getting bigger.',
-  },
-  {
-    index: '03',
-    title: 'No Professional Storefront',
-    description:
-      'Your social page may bring customers in, but your business deserves a professional place of its own.',
-  },
-];
-
-const steps = [
-  {
-    number: '01',
-    title: 'Create your store',
-    description:
-      'Set up your Storefy workspace and get your business organized.',
-  },
-  {
-    number: '02',
-    title: 'Add your products',
-    description: 'Build your catalog and organize your products in one place.',
-  },
-  {
-    number: '03',
-    title: 'Manage your business',
-    description:
-      'Keep your products and operations organized from a single dashboard.',
-  },
-  {
-    number: '04',
-    title: 'Grow your brand',
-    description: 'Give customers a more professional online experience.',
-  },
-];
-
-const featureItems = [
-  {
-    icon: Package,
-    title: 'Product Management',
-    description:
-      'Keep inventory, pricing, and product details organized in one place.',
-  },
-  {
-    icon: ShoppingCart,
-    title: 'Order Management',
-    description:
-      'Track order flow and keep your store operations clear and structured.',
-  },
-  {
-    icon: Store,
-    title: 'Storefront',
-    description:
-      'Give customers a clean, professional storefront experience for your brand.',
-  },
-  {
-    icon: Tag,
-    title: 'Product Categories',
-    description:
-      'Group products into categories to keep your catalog easy to browse.',
-  },
-  {
-    icon: LayoutDashboard,
-    title: 'Business Dashboard',
-    description:
-      'Manage your company workspace with a focused operational dashboard.',
-  },
-  {
-    icon: Building2,
-    title: 'Multi-tenant Store Management',
-    description:
-      'Support multiple store contexts within one secure, tenant-aware workspace.',
-  },
-];
-
-const showcaseTabs = [
-  'Products',
-  'Orders',
-  'Storefront',
-  'Customers',
-  'Analytics',
-  'Settings',
-] as const;
-type ShowcaseTab = (typeof showcaseTabs)[number];
-
-const showcasePanels: Record<
+import {
+  MARKETING_LOCALE_COOKIE,
+  marketingCopy,
+  showcaseTabKeys,
+} from './marketing-copy';
+import type {
+  MarketingCopy,
+  MarketingLocale,
   ShowcaseTab,
-  { title: string; subtitle: string; body: string[] }
-> = {
-  Products: {
-    title: 'Product management',
-    subtitle: 'Organize your food catalog with clarity.',
-    body: [
-      'Create and update product listings for your daily bestsellers and seasonal items.',
-      'Group foods into clear categories so customers can browse faster.',
-      'Keep pricing, availability, and product details aligned in one place.',
-    ],
-  },
-  Orders: {
-    title: 'Order workflow',
-    subtitle: 'Keep delivery and pickup organized.',
-    body: [
-      'Track incoming orders from message to delivery without losing the thread.',
-      'Review and manage order flow more neatly as your business grows.',
-      'Keep your daily store operations clear and easy to manage.',
-    ],
-  },
-  Storefront: {
-    title: 'Storefront',
-    subtitle: 'Give customers a cleaner digital storefront.',
-    body: [
-      'Present your products with a more professional online storefront experience.',
-      'Showcase your food business in a format customers can trust and browse easily.',
-      'Create a polished home for your brand without building everything from scratch.',
-    ],
-  },
-  Customers: {
-    title: 'Customers',
-    subtitle: 'Stay close to repeat buyers and local regulars.',
-    body: [
-      'Keep customer information organized so repeat orders are easier to manage.',
-      'Track what customers buy most and respond faster to demand.',
-      'Build a stronger repeat-order experience as your business grows.',
-    ],
-  },
-  Analytics: {
-    title: 'Analytics',
-    subtitle: 'Understand what is performing well.',
-    body: [
-      'Monitor your top-selling products and order patterns without guesswork.',
-      'Review your store activity in a simpler, more actionable view.',
-      'Make better day-to-day decisions based on what your business is actually selling.',
-    ],
-  },
-  Settings: {
-    title: 'Business settings',
-    subtitle: 'Keep the shop setup clean and simple.',
-    body: [
-      'Manage your store identity, contact information, and business details in one place.',
-      'Adjust your business setup without leaving the main workspace.',
-      'Keep your store configuration organized and ready for growth.',
-    ],
-  },
-};
+} from './marketing-copy';
 
-const useCases = [
-  {
-    title: 'Home-Based Food Businesses',
-    description:
-      'Keep everyday production, pricing, and orders in one place without the chaos of scattered messages.',
-  },
-  {
-    title: 'Facebook Sellers',
-    description:
-      'Turn social sales into a cleaner system that feels more professional and easier to manage.',
-  },
-  {
-    title: 'Small Retailers',
-    description:
-      'Give your shop a more structured workflow for inventory, products, and customer orders.',
-  },
-  {
-    title: 'Growing Online Brands',
-    description:
-      'Move from manual work to a more organized online storefront as demand grows.',
-  },
-];
+export type MarketingPlan = Pick<
+  Plan,
+  | 'id'
+  | 'name'
+  | 'description'
+  | 'price_monthly'
+  | 'product_limit'
+  | 'archived_product_limit'
+  | 'order_limit'
+  | 'storage_limit_bytes'
+  | 'features'
+>;
 
-const trustSignals = [
-  'Simple setup',
-  'Organized business management',
-  'Professional storefront experience',
-  'One dedicated workspace',
-];
+const navigationItems = [
+  { label: 'features', href: '#features' },
+  { label: 'howItWorks', href: '#how-it-works' },
+  { label: 'pricing', href: '#pricing' },
+  { label: 'faq', href: '#faq' },
+] as const;
 
-const faqs = [
-  {
-    question: 'What is Storefy?',
-    answer:
-      'Storefy is a multi-tenant SaaS platform that helps small businesses turn their Facebook-based business into a professional online store. You can manage your products, storefront, business settings, and day-to-day operations from one place.',
-  },
-  {
-    question: 'Who is Storefy for?',
-    answer:
-      'Storefy is built for small businesses, home-based sellers, Facebook sellers, and growing brands that want a professional online storefront without the cost and complexity of building one from scratch.',
-  },
-  {
-    question: 'Do I need coding knowledge?',
-    answer:
-      'No. Storefy is designed for business owners, not developers. You can set up your store, manage products, customize your storefront, and manage your business from the dashboard without writing code.',
-  },
-  {
-    question: 'How does Storefy work?',
-    answer:
-      'Create your Storefy workspace, set up your store, add your products, customize your storefront, and start sharing it with your customers. Storefy provides the dashboard and storefront infrastructure so you can focus on running your business.',
-  },
-  {
-    question: 'Can I manage my products from Storefy?',
-    answer:
-      'Yes. You can create, edit, organize, feature, archive, and manage your products from the Storefy dashboard. Your product information and images are connected to your storefront, so updates can be managed from one place.',
-  },
-  {
-    question: 'Can I start for free?',
-    answer:
-      'Yes. You can start with Storefy without an upfront cost. Free and trial access comes with usage limits, while paid plans can provide higher limits and additional features as your business grows.',
-  },
-  {
-    question: 'Can I manage my store from one dashboard?',
-    answer:
-      'Yes. Storefy brings your store management into one dashboard, giving you a central place to manage products, storefront settings, branding, and other business operations instead of handling everything separately.',
-  },
-];
+const featureIcons = [
+  Store,
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  BarChart3,
+  Star,
+  CreditCard,
+  Users,
+  Palette,
+  Tag,
+  ImageIcon,
+  Check,
+] as const;
+const showcaseIcons = {
+  dashboard: LayoutDashboard,
+  products: Package,
+  orders: ShoppingCart,
+  analytics: BarChart3,
+  storefront: Store,
+} as const;
+const INITIAL_FEATURE_COUNT = 8;
 
-function Logo() {
+function Logo({ alt }: { alt: string }) {
   return (
     <div className="flex items-center">
       <div className="relative h-11 w-[88px] overflow-hidden bg-transparent sm:h-12 sm:w-24">
         <Image
           src="/storefy-LOGO.png"
-          alt="Storefy logo"
+          alt={alt}
           width={180}
           height={90}
           className="h-full w-full object-contain"
@@ -276,7 +104,57 @@ function Logo() {
   );
 }
 
-function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
+function LanguageSwitcher({
+  locale,
+  label,
+  onChange,
+}: {
+  locale: MarketingLocale;
+  label: string;
+  onChange: (locale: MarketingLocale) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="inline-flex items-center gap-0.5 rounded-xl border border-violet-200/80 bg-violet-50/70 p-1"
+    >
+      {([
+        { value: 'bn', label: 'বাংলা' },
+        { value: 'en', label: 'English' },
+      ] as const).map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={locale === option.value}
+          onClick={() => onChange(option.value)}
+          className={cn(
+            'rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors',
+            locale === option.value
+              ? 'bg-white text-violet-800 shadow-sm'
+              : 'text-slate-500 hover:bg-white/70 hover:text-slate-800',
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MobileNav({
+  open,
+  onClose,
+  locale,
+  onLocaleChange,
+  copy,
+}: {
+  open: boolean;
+  onClose: () => void;
+  locale: MarketingLocale;
+  onLocaleChange: (locale: MarketingLocale) => void;
+  copy: MarketingCopy;
+}) {
   return (
     <div
       className={cn(
@@ -291,7 +169,7 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
         type="button"
         className="absolute inset-0 h-full w-full cursor-default bg-slate-950/45 focus-visible:outline-none"
         onClick={onClose}
-        aria-label="Close navigation"
+        aria-label={copy.accessibility.closeNavigation}
         tabIndex={open ? 0 : -1}
       />
       <div
@@ -305,29 +183,29 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
         }}
         role="dialog"
         aria-modal="true"
-        aria-label="Main navigation"
+        aria-label={copy.accessibility.mainNavigation}
       >
         <div className="flex items-center justify-between pb-4">
-          <Logo />
+          <Logo alt={copy.accessibility.logo} />
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            aria-label="Close menu"
+            aria-label={copy.accessibility.closeNavigation}
           >
             <X className="h-5 w-5" />
           </Button>
         </div>
 
         <nav className="mt-8 space-y-2">
-          {navItems.map((item) => (
+          {navigationItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               onClick={onClose}
               className="flex min-h-12 items-center justify-between rounded-xl border border-transparent px-4 py-3.5 text-base font-medium text-slate-800 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-slate-900 touch-manipulation select-none"
             >
-              {item.label}
+              {copy.nav[item.label]}
               <ChevronRight className="h-4 w-4 text-slate-400" />
             </Link>
           ))}
@@ -338,20 +216,235 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
             href="/auth/login"
             className="block text-sm font-medium text-slate-700 hover:text-slate-900"
           >
-            Sign in
+            {copy.nav.signIn}
           </Link>
           <Button asChild className="w-full" size="lg">
-            <Link href="/auth/signup">Start Free</Link>
+            <Link href="/auth/signup">{copy.nav.startFree}</Link>
           </Button>
+          <div className="flex justify-center border-t border-slate-200 pt-4">
+            <LanguageSwitcher
+              locale={locale}
+              label={copy.accessibility.chooseLanguage}
+              onChange={onLocaleChange}
+            />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-export function LandingPage() {
-  const [activeTab, setActiveTab] = React.useState<ShowcaseTab>('Products');
+interface PricingCardProps {
+  plan: MarketingPlan;
+  copy: MarketingCopy['pricing'];
+  locale: MarketingLocale;
+  isPopular: boolean;
+}
+
+function PricingCard({
+  plan,
+  copy,
+  locale,
+  isPopular,
+}: PricingCardProps) {
+  const featureConfig = plan.features;
+  if (!featureConfig || typeof featureConfig !== 'object') {
+    throw new Error(`Plan "${plan.name}" has invalid feature configuration.`);
+  }
+
+  const teamMemberLimit = featureConfig.team_members;
+  const analyticsIncluded = featureConfig.analytics;
+  const customDomainIncluded = featureConfig.custom_domain;
+
+  if (
+    typeof teamMemberLimit !== 'number' ||
+    !Number.isFinite(teamMemberLimit) ||
+    typeof analyticsIncluded !== 'boolean' ||
+    typeof customDomainIncluded !== 'boolean'
+  ) {
+    throw new Error(`Plan "${plan.name}" has invalid feature configuration.`);
+  }
+
+  const numberLocale = locale === 'bn' ? 'bn-BD' : 'en-BD';
+  const formatLimit = (limit: number, item: string) => {
+    if (limit < 0) {
+      return copy.features.unlimited.replace('{item}', item);
+    }
+    if (limit === 0) {
+      return copy.features.none.replace('{item}', item);
+    }
+    return copy.features.limit
+      .replace('{count}', limit.toLocaleString(numberLocale))
+      .replace('{item}', item);
+  };
+  const storageGigabytes = plan.storage_limit_bytes / 1024 ** 3;
+  const storageLabel =
+    plan.storage_limit_bytes === 0
+      ? copy.features.none.replace('{item}', copy.features.storageUnit)
+      : plan.storage_limit_bytes < 0
+        ? copy.features.unlimited.replace('{item}', copy.features.storageUnit)
+        : copy.features.storage.replace(
+            '{amount}',
+            Number.isInteger(storageGigabytes)
+              ? storageGigabytes.toLocaleString(numberLocale)
+              : storageGigabytes.toLocaleString(numberLocale, {
+                  maximumFractionDigits: 1,
+                }),
+          );
+  const features = [
+    {
+      label: formatLimit(plan.product_limit, copy.features.activeProducts),
+      included: plan.product_limit !== 0,
+    },
+    {
+      label: formatLimit(
+        plan.archived_product_limit,
+        copy.features.archivedProducts,
+      ),
+      included: plan.archived_product_limit !== 0,
+    },
+    {
+      label: formatLimit(plan.order_limit, copy.features.orders),
+      included: plan.order_limit !== 0,
+    },
+    {
+      label: storageLabel,
+      included: plan.storage_limit_bytes !== 0,
+    },
+    {
+      label: formatLimit(teamMemberLimit, copy.features.teamMembers),
+      included: teamMemberLimit !== 0,
+    },
+    {
+      label: copy.features.analytics,
+      included: analyticsIncluded,
+    },
+    {
+      label: copy.features.customDomain,
+      included: customDomainIncluded,
+    },
+  ];
+  const planName =
+    plan.name.charAt(0).toUpperCase() + plan.name.slice(1).toLowerCase();
+
+  return (
+    <Card
+      className={cn(
+        'flex h-full flex-col overflow-hidden rounded-[26px] border p-0 transition-shadow hover:shadow-lg',
+        isPopular
+          ? 'border-violet-500 bg-white shadow-[0_24px_60px_-24px_rgba(91,33,182,0.42)]'
+          : 'border-slate-200 bg-white'
+      )}
+    >
+      <div
+        className={cn(
+          'flex flex-col p-6 sm:p-8',
+          isPopular
+            ? 'bg-violet-700 text-white'
+            : 'bg-violet-50/70 text-slate-900',
+        )}
+      >
+        <div className="flex min-h-7 items-start justify-between gap-3">
+          <h3 className="text-[19px] leading-[1.5rem] font-bold tracking-tight">{planName}</h3>
+          {isPopular && (
+            <span className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] font-semibold">
+              {copy.popular}
+            </span>
+          )}
+        </div>
+        <p
+          className={cn(
+            'mt-2 min-h-10 text-[17px] leading-[1.25rem]',
+            isPopular ? 'text-violet-100' : 'text-slate-600',
+          )}
+        >
+          {plan.description}
+        </p>
+
+        <div className="mt-5 flex items-baseline gap-1">
+          <span className="text-4xl font-extrabold tracking-tight">
+            ৳{plan.price_monthly.toLocaleString(numberLocale)}
+          </span>
+          <span
+            className={cn(
+              'text-sm',
+              isPopular ? 'text-violet-100' : 'text-slate-500',
+            )}
+          >
+            {copy.perMonth}
+          </span>
+        </div>
+
+        <Link
+          href="/auth/signup"
+          className={cn(
+            'mt-5 block w-full rounded-xl px-5 py-3 text-center text-sm font-semibold transition-colors',
+            isPopular
+              ? 'bg-white text-violet-800 hover:bg-violet-50'
+              : 'bg-violet-700 text-white hover:bg-violet-800',
+          )}
+        >
+          {copy.getStarted}
+        </Link>
+      </div>
+
+      <div className="flex flex-1 flex-col p-6 sm:p-8">
+        <ul className="space-y-3.5">
+          {features.map((feature) => (
+            <li key={feature.label} className="flex items-start gap-2.5">
+              {feature.included ? (
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+              ) : (
+                <X className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+              )}
+              <span
+                className={cn(
+                  'text-[17px] leading-[1.5rem]',
+                  feature.included ? 'text-slate-700' : 'text-slate-400'
+                )}
+              >
+                {feature.label}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Card>
+  );
+}
+
+export function LandingPage({
+  initialLocale,
+  plans,
+}: {
+  initialLocale: MarketingLocale;
+  plans: MarketingPlan[];
+}) {
+  const [locale, setLocale] = React.useState(initialLocale);
+  const copy = marketingCopy[locale];
+  const [activeTab, setActiveTab] = React.useState<ShowcaseTab>('dashboard');
+  const [showAllFeatures, setShowAllFeatures] = React.useState(false);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isScrolled, setIsScrolled] = React.useState(false);
+
+  const handleLocaleChange = (nextLocale: MarketingLocale) => {
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${MARKETING_LOCALE_COOKIE}=${nextLocale}; Max-Age=31536000; Path=/; SameSite=Lax${secure}`;
+    document.documentElement.lang = nextLocale;
+    setLocale(nextLocale);
+  };
+
+  React.useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
+  React.useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 12);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   React.useEffect(() => {
     if (!isMenuOpen) return;
@@ -382,6 +475,11 @@ export function LandingPage() {
       const element = document.getElementById(id);
       if (!element) return;
 
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduced) {
+        return;
+      }
+
       e.preventDefault();
       const headerOffset = 80;
       const elementPosition = element.getBoundingClientRect().top + window.scrollY;
@@ -398,25 +496,49 @@ export function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-atmosphere-gradient text-slate-900">
-      <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/65 backdrop-blur-xl">
+    <div
+      lang={locale}
+      className="min-h-screen bg-atmosphere-gradient text-slate-900"
+      style={{
+        fontFamily:
+          locale === 'bn'
+            ? 'var(--font-noto-bengali), sans-serif'
+            : 'var(--font-dm-sans), sans-serif',
+      }}
+    >
+      <header
+        className={cn(
+          'sticky top-0 z-40 border-b backdrop-blur-xl transition-[background-color,border-color,box-shadow] duration-300',
+          isScrolled
+            ? 'bg-white/80 shadow-[0_8px_24px_-20px_rgba(15,23,42,.45)]'
+            : 'border-transparent bg-transparent shadow-none',
+        )}
+        style={{
+          borderBottomColor: isScrolled
+            ? 'rgba(226, 232, 240, 0.7)'
+            : 'transparent',
+        }}
+      >
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <Link
             href="/"
-            aria-label="Storefy home"
+            aria-label="Storefy"
             className="flex items-center"
           >
-            <Logo />
+            <Logo alt={copy.accessibility.logo} />
           </Link>
 
-          <nav className="hidden items-center gap-8 lg:flex">
-            {navItems.map((item) => (
+          <nav
+            aria-label={copy.accessibility.mainNavigation}
+            className="hidden items-center gap-8 lg:flex"
+          >
+            {navigationItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
+                className="text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900"
               >
-                {item.label}
+                {copy.nav[item.label]}
               </Link>
             ))}
           </nav>
@@ -426,11 +548,16 @@ export function LandingPage() {
               href="/auth/login"
               className="text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
             >
-              Sign in
+              {copy.nav.signIn}
             </Link>
             <Button asChild size="lg">
-              <Link href="/auth/signup">Start Free</Link>
+              <Link href="/auth/signup">{copy.nav.startFree}</Link>
             </Button>
+            <LanguageSwitcher
+              locale={locale}
+              label={copy.accessibility.chooseLanguage}
+              onChange={handleLocaleChange}
+            />
           </div>
 
           <Button
@@ -438,548 +565,256 @@ export function LandingPage() {
             size="icon"
             className="relative z-50 lg:hidden touch-manipulation"
             onClick={() => setIsMenuOpen(true)}
-            aria-label="Open navigation"
+            aria-label={copy.accessibility.openNavigation}
           >
             <Menu className="h-5 w-5" />
           </Button>
         </div>
       </header>
 
-      <MobileNav open={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <MobileNav
+        open={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        locale={locale}
+        onLocaleChange={handleLocaleChange}
+        copy={copy}
+      />
 
       <main className="overflow-x-hidden">
-        <LandingHero />
+        <LandingHero locale={locale} copy={copy.hero} />
 
-        <section className="px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-6xl">
-            <div className="mx-auto max-w-2xl text-center">
+        <section
+          id="features"
+          className="scroll-section flex flex-col justify-center px-4 py-12 sm:px-6 sm:py-14 lg:min-h-[calc(100svh-4.9rem)] lg:px-8 lg:py-12"
+        >
+          <div className="mx-auto w-full max-w-[1400px]">
+            <div className="mx-auto max-w-[1320px] text-center">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-700">
-                The problem
+                {copy.featureSection.eyebrow}
               </p>
-              <h2 className="mt-4 text-3xl font-bold tracking-[-0.05em] text-slate-900 sm:text-4xl">
-                Your Business Has Grown. Your Workflow Should Too.
+              <h2 className="mt-4 text-4xl font-extrabold leading-[1.25] tracking-[-0.035em] text-slate-950 sm:text-5xl">
+                {copy.featureSection.title}
               </h2>
-            </div>
-
-            <div className="mt-12 grid gap-5 lg:grid-cols-3">
-              {problemCards.map((card) => (
-                <Card
-                  key={card.index}
-                  className="group h-full border-slate-200/80 bg-white/70 p-6 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.3)] transition-transform duration-200 hover:-translate-y-1 hover:shadow-[0_25px_60px_-25px_rgba(76,29,149,0.24)]"
-                >
-                  <div className="mb-5 flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-700">
-                      {card.index}
-                    </span>
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-50 text-violet-600">
-                      <ShoppingCart className="h-4 w-4" />
-                    </div>
-                  </div>
-                  <h3 className="text-xl font-semibold tracking-[-0.03em] text-slate-900">
-                    {card.title}
-                  </h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {card.description}
-                  </p>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="features" className="px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-6xl">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-700">
-                Solution
+              <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+                {copy.featureSection.description}
               </p>
-              <h2 className="mt-4 text-3xl font-bold tracking-[-0.05em] text-slate-900 sm:text-4xl">
-                One Simple Workspace. A Better Way to Run Your Store.
-              </h2>
             </div>
 
-            <div className="mt-12 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="rounded-[28px] border border-slate-200 bg-white/80 p-4 shadow-[0_20px_50px_-30px_rgba(76,29,149,0.28)] sm:p-5">
-                <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-3 sm:p-4">
-                  <div className="mb-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-violet-600 to-sky-500 text-white">
-                        <Store className="h-3.5 w-3.5" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400">
-                          Storefy
-                        </p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          Business dashboard
-                        </p>
-                      </div>
-                    </div>
-                    <div className="rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600">
-                      Active
-                    </div>
-                  </div>
+            <div
+              id="marketing-feature-grid"
+              className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-5 lg:grid-cols-4"
+            >
+              {(showAllFeatures
+                ? copy.featureSection.items
+                : copy.featureSection.items.slice(0, INITIAL_FEATURE_COUNT)
+              ).map((feature, index) => {
+                const Icon = featureIcons[index];
 
-                  <div className="grid gap-3 md:grid-cols-[170px_1fr]">
-                    <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3">
-                      {[
-                        'Products',
-                        'Orders',
-                        'Storefront',
-                        'Business Settings',
-                      ].map((item) => (
-                        <div
-                          key={item}
-                          className="rounded-xl bg-slate-50 px-2.5 py-2 text-sm text-slate-600"
-                        >
-                          {item}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-slate-700">
-                            Best sellers
-                          </p>
-                          <div className="rounded-full bg-violet-100 px-2 py-1 text-[10px] font-medium text-violet-700">
-                            Updated
-                          </div>
-                        </div>
-                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                          {['Tea set', 'Soap gift', 'Journal'].map((item) => (
-                            <div
-                              key={item}
-                              className="rounded-xl bg-slate-50 p-2 text-center"
-                            >
-                              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-100 to-sky-100 text-violet-700">
-                                <Package className="h-4 w-4" />
-                              </div>
-                              <p className="mt-2 text-xs font-medium text-slate-700">
-                                {item}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                          <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">
-                            Orders
-                          </p>
-                          <p className="mt-2 text-xl font-bold text-slate-900">
-                            24 pending
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                          <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">
-                            Store
-                          </p>
-                          <p className="mt-2 text-xl font-bold text-slate-900">
-                            Ready
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col justify-center gap-4">
-                <div className="rounded-2xl border border-violet-200 bg-violet-50/80 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
-                    Products
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">
-                    Maintain your catalog from one organized workspace.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                    Orders
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">
-                    Keep fulfillment visible without losing the thread of each
-                    order.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-violet-200 bg-white/80 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
-                    Storefront
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">
-                    Give customers a cleaner, more professional buying
-                    experience.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white/90 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
-                    Business Settings
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">
-                    Keep the core operational details of your business aligned.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="how-it-works" className="px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-6xl">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-700">
-                How it works
-              </p>
-              <h2 className="mt-4 text-3xl font-bold tracking-[-0.05em] text-slate-900 sm:text-4xl">
-                A simple path from business setup to growth.
-              </h2>
-            </div>
-
-            <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-              {steps.map((step) => (
-                <div
-                  key={step.number}
-                  className="group rounded-[26px] border border-slate-200 bg-white/80 p-6 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.28)] transition-transform duration-200 hover:-translate-y-1"
-                >
-                  <div className="mb-6 flex items-center justify-between">
-                    <span className="text-sm font-semibold uppercase tracking-[0.2em] text-violet-700">
-                      {step.number}
-                    </span>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-50 text-violet-600">
-                      <ChevronRight className="h-4 w-4" />
-                    </div>
-                  </div>
-                  <h3 className="text-xl font-semibold tracking-[-0.03em] text-slate-900">
-                    {step.title}
-                  </h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {step.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-6xl">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-700">
-                Features
-              </p>
-              <h2 className="mt-4 text-3xl font-bold tracking-[-0.05em] text-slate-900 sm:text-4xl">
-                Everything your store needs, without the overhead.
-              </h2>
-            </div>
-
-            <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {featureItems.map(({ icon: Icon, title, description }) => (
-                <PremiumCard
-                  key={title}
-                  className="group h-full border-slate-200/80 bg-white/75 p-6 transition-transform duration-200 hover:-translate-y-1 hover:border-violet-200 hover:shadow-[0_24px_60px_-30px_rgba(76,29,149,0.3)]"
-                >
-                  <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 via-indigo-500 to-sky-500 text-white shadow-sm shadow-violet-200/60">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="text-xl font-semibold tracking-[-0.03em] text-slate-900">
-                    {title}
-                  </h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {description}
-                  </p>
-                </PremiumCard>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-6xl">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-700">
-                Product showcase
-              </p>
-              <h2 className="mt-4 text-3xl font-bold tracking-[-0.05em] text-slate-900 sm:text-4xl">
-                Everything Your Store Needs. Right Where You Need It.
-              </h2>
-            </div>
-
-            <div className="mt-10 overflow-hidden rounded-[30px] border border-slate-200 bg-white/75 p-4 shadow-[0_28px_80px_-35px_rgba(76,29,149,0.32)] backdrop-blur-sm sm:p-5">
-              <div className="flex flex-wrap gap-2 rounded-2xl border border-violet-100 bg-violet-50/70 p-2">
-                {showcaseTabs.map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveTab(tab)}
+                /* eslint-disable jsx-a11y/no-noninteractive-tabindex -- Keyboard focus styling is explicitly required for feature cards. */
+                return (
+                  <article
+                    key={feature.id}
+                    tabIndex={0}
                     className={cn(
-                      'rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                      activeTab === tab
-                        ? 'bg-white text-slate-900 shadow-sm ring-1 ring-violet-100'
-                        : 'text-slate-600 hover:text-slate-900'
+                      'group h-full rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_12px_30px_-24px_rgba(15,23,42,0.28)] transition-[border-color,box-shadow] duration-200 hover:border-violet-600! hover:shadow-[0_16px_34px_-18px_rgba(91,33,182,0.38)] focus-visible:border-violet-600! focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 motion-reduce:transition-none',
+                      showAllFeatures &&
+                        index >= INITIAL_FEATURE_COUNT &&
+                        'animate-slide-up',
                     )}
-                    aria-pressed={activeTab === tab}
                   >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-5 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4 sm:p-5">
-                  <div className="mb-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-sky-500 text-white">
-                        <Store className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">
-                          Store
-                        </p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          Dhaka Kitchen House
-                        </p>
-                      </div>
-                    </div>
-                    <div className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-medium text-violet-700">
-                      {activeTab}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.15em] text-slate-400">
-                        <span>Catalog</span>
-                        <span>Live</span>
-                      </div>
-                      <div className="mt-3 space-y-2">
-                        {['Mango Pickle', 'Jalpai Pickle', 'Amsotto'].map(
-                          (name, index) => (
-                            <div
-                              key={name}
-                              className="flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-2"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className={cn(
-                                    'flex h-7 w-7 items-center justify-center rounded-md text-white',
-                                    index % 2 === 0
-                                      ? 'bg-violet-500'
-                                      : 'bg-sky-500'
-                                  )}
-                                >
-                                  <Package className="h-3.5 w-3.5" />
-                                </div>
-                                <span className="text-sm font-medium text-slate-700">
-                                  {name}
-                                </span>
-                              </div>
-                              <span className="text-xs text-slate-500">
-                                ৳
-                                {index === 0
-                                  ? '290'
-                                  : index === 1
-                                    ? '320'
-                                    : '250'}
-                              </span>
-                            </div>
-                          )
-                        )}
-                      </div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700 transition-colors duration-200 group-hover:bg-violet-700 group-hover:text-white group-focus-visible:bg-violet-700 group-focus-visible:text-white motion-reduce:transition-none">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.15em] text-slate-400">
-                        <span>Updates</span>
-                        <span>Today</span>
-                      </div>
-                      <div className="mt-4 space-y-3">
-                        {[
-                          { label: 'Orders', value: '21' },
-                          { label: 'Customers', value: '46' },
-                          { label: 'Stock', value: 'Good' },
-                        ].map((item) => (
-                          <div
-                            key={item.label}
-                            className="flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-2"
-                          >
-                            <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400">
-                              {item.label}
-                            </span>
-                            <span className="text-sm font-semibold text-slate-900">
-                              {item.value}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  className="flex flex-col justify-center rounded-[24px] border border-slate-200 bg-white p-5"
-                  key={activeTab}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
-                    {activeTab}
-                  </p>
-                  <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-slate-900">
-                    {showcasePanels[activeTab].title}
-                  </h3>
-                  <p className="mt-2 text-sm text-slate-600">
-                    {showcasePanels[activeTab].subtitle}
-                  </p>
-                  <ul className="mt-5 space-y-3">
-                    {showcasePanels[activeTab].body.map((point) => (
-                      <li
-                        key={point}
-                        className="flex gap-3 text-sm leading-6 text-slate-700"
-                      >
-                        <span className="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-violet-700">
-                          <Check className="h-3 w-3" />
-                        </span>
-                        <span>{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+                    <h3 className="mt-4 text-lg font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-xl">
+                      {feature.title}
+                    </h3>
+                    <p className="mt-1.5 text-[15px] leading-6 text-slate-600">
+                      {feature.description}
+                    </p>
+                  </article>
+                );
+                /* eslint-enable jsx-a11y/no-noninteractive-tabindex */
+              })}
             </div>
+
+            {copy.featureSection.items.length > INITIAL_FEATURE_COUNT && (
+              <div className="mt-8 flex justify-center">
+                <Button
+                  type="button"
+                  aria-controls="marketing-feature-grid"
+                  aria-expanded={showAllFeatures}
+                  onClick={() => setShowAllFeatures((expanded) => !expanded)}
+                  className="h-auto min-h-12 rounded-full bg-violet-700 px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_-16px_rgba(91,33,182,0.75)] transition-[background-color,box-shadow] hover:bg-violet-800 hover:shadow-[0_14px_32px_-16px_rgba(91,33,182,0.85)] active:bg-violet-900 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 motion-reduce:transition-none"
+                >
+                  {showAllFeatures
+                    ? copy.featureSection.seeLess
+                    : copy.featureSection.seeMore}
+                  {showAllFeatures ? (
+                    <ChevronUp className="ml-2 h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <ChevronDown className="ml-2 h-4 w-4" aria-hidden="true" />
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </section>
 
-        <section className="px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-6xl">
-            <div className="mx-auto max-w-2xl text-center">
+        <section
+          id="how-it-works"
+          className="scroll-section flex flex-col justify-center px-4 py-16 sm:px-6 sm:py-20 lg:min-h-[calc(100svh-4.9rem)] lg:px-8 lg:py-16 bg-[#FAF8FF]"
+        >
+          <div className="mx-auto w-full max-w-[1680px]">
+            <div className="mx-auto max-w-4xl text-center">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-700">
-                Use cases
+                {copy.showcase.eyebrow}
               </p>
-              <h2 className="mt-4 text-3xl font-bold tracking-[-0.05em] text-slate-900 sm:text-4xl">
-                Built for Businesses Ready to Grow.
+              <h2 className="mt-4 text-3xl font-extrabold tracking-[-0.055em] text-slate-950 sm:text-4xl lg:text-[38px] lg:leading-[1.12]">
+                {copy.showcase.title}
               </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-lg leading-7 text-slate-600 sm:text-xl sm:leading-8">
+                {copy.showcase.description}
+              </p>
             </div>
 
-            <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-              {useCases.map((item) => (
-                <Card
-                  key={item.title}
-                  className="group h-full border-slate-200/80 bg-white/80 p-6 transition-transform duration-200 hover:-translate-y-1 hover:border-violet-200 hover:shadow-[0_24px_60px_-30px_rgba(76,29,149,0.26)]"
+            <div
+              role="tablist"
+              aria-label={copy.showcase.eyebrow}
+              className="mx-auto mt-6 flex w-fit max-w-full flex-wrap justify-center gap-1 rounded-xl border border-violet-100 bg-violet-50/70 p-1 lg:flex-nowrap"
+            >
+              {showcaseTabKeys.map((tab, index) => (
+                <button
+                  key={tab}
+                  id={`showcase-tab-${tab}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab}
+                  aria-controls={`showcase-panel-${tab}`}
+                  tabIndex={activeTab === tab ? 0 : -1}
+                  onClick={() => setActiveTab(tab)}
+                  onKeyDown={(event) => {
+                    let nextIndex = index;
+                    if (event.key === 'ArrowRight') nextIndex = (index + 1) % showcaseTabKeys.length;
+                    if (event.key === 'ArrowLeft') nextIndex = (index - 1 + showcaseTabKeys.length) % showcaseTabKeys.length;
+                    if (event.key === 'Home') nextIndex = 0;
+                    if (event.key === 'End') nextIndex = showcaseTabKeys.length - 1;
+                    if (nextIndex !== index) {
+                      event.preventDefault();
+                      const nextTab = showcaseTabKeys[nextIndex];
+                      setActiveTab(nextTab);
+                      document.getElementById(`showcase-tab-${nextTab}`)?.focus();
+                    }
+                  }}
+                  className={cn(
+                    'shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition-[background-color,color,box-shadow] duration-200 sm:text-sm',
+                    activeTab === tab
+                      ? 'bg-violet-700 text-white shadow-[0_8px_22px_-12px_rgba(91,33,182,0.9)]'
+                      : 'text-slate-600 hover:bg-white/80 hover:text-slate-950',
+                  )}
                 >
-                  <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 via-white to-sky-100 text-violet-700 shadow-sm">
-                    <Users className="h-5 w-5" />
-                  </div>
-                  <h3 className="text-xl font-semibold tracking-[-0.03em] text-slate-900">
-                    {item.title}
-                  </h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {item.description}
-                  </p>
-                </Card>
+                  {copy.showcase.tabs[tab]}
+                </button>
               ))}
             </div>
-          </div>
-        </section>
 
-        <section id="pricing" className="px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-6xl">
-            <div className="rounded-[30px] border border-violet-200 bg-gradient-to-br from-violet-600 via-indigo-500 to-sky-500 p-6 text-white shadow-[0_30px_80px_-30px_rgba(79,70,229,0.4)] sm:p-8 lg:p-10">
-              <div className="grid gap-6 lg:grid-cols-[1fr_1fr] lg:items-center">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-violet-100">
-                    Value
-                  </p>
-                  <h2 className="mt-3 text-3xl font-bold tracking-[-0.05em] sm:text-4xl">
-                    A cleaner way to grow your business online.
-                  </h2>
+            <div
+              id={`showcase-panel-${activeTab}`}
+              role="tabpanel"
+              aria-labelledby={`showcase-tab-${activeTab}`}
+              key={activeTab}
+              className="mt-8 grid items-center gap-8 animate-[showcase-in_260ms_ease-out_both] xl:grid-cols-[0.62fr_1.38fr] xl:gap-10"
+            >
+              <div className="flex max-w-[380px] flex-col justify-center">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50">
+                    {React.createElement(showcaseIcons[activeTab], {
+                      className: 'h-5 w-5 text-violet-700',
+                      'aria-hidden': true,
+                    })}
+                  </span>
+                  <h3 className="text-2xl font-bold tracking-[-0.04em] text-slate-950 sm:text-[28px] lg:text-[30px]">
+                    {copy.showcase.tabs[activeTab]}
+                  </h3>
                 </div>
-                <div className="rounded-[24px] border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
-                  <p className="text-sm text-violet-50">
-                    Build a clearer store workflow with:
-                  </p>
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    {trustSignals.map((signal) => (
-                      <div
-                        key={signal}
-                        className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-medium text-white/90"
-                      >
-                        {signal}
-                      </div>
-                    ))}
-                  </div>
+                <ul className="mt-7 space-y-5 sm:mt-8">
+                  {copy.showcase.panels[activeTab].body.map((point) => (
+                    <li key={point} className="flex gap-3 text-base leading-7 text-slate-700 sm:text-lg">
+                      <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="flex aspect-[1.6/1] w-full flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_28px_70px_-42px_rgba(76,29,149,0.45)] xl:ml-4 xl:aspect-auto xl:h-[clamp(460px,36vw,660px)] xl:w-[calc(100%+1rem)]">
+                <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-slate-200 bg-slate-50 px-3">
+                  <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                </div>
+                <div className="relative min-h-0 flex-1 bg-white">
+                  <Image
+                    src={copy.showcase.panels[activeTab].image}
+                    alt={copy.showcase.panels[activeTab].imageAlt}
+                    fill
+                    sizes="(max-width: 1279px) 100vw, (max-width: 1679px) 68vw, 1120px"
+                    className="object-contain object-center xl:object-cover"
+                    priority={activeTab === 'dashboard'}
+                  />
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-6xl">
-            <div className="grid gap-5 lg:grid-cols-4">
-              {trustSignals.map((signal) => (
-                <div
-                  key={signal}
-                  className="rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.26)]"
-                >
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-                    <ShieldCheck className="h-5 w-5" />
-                  </div>
-                  <h3 className="text-lg font-semibold tracking-[-0.03em] text-slate-900">
-                    {signal}
-                  </h3>
-                </div>
+        <section
+          id="pricing"
+          className="scroll-section bg-white px-4 py-20 sm:px-6 sm:py-24 lg:px-8 lg:py-28"
+        >
+          <div className="mx-auto w-full max-w-[1280px]">
+            <div className="mx-auto max-w-3xl text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-700">
+                {copy.pricing.eyebrow}
+              </p>
+              <h2 className="mt-3 text-[24px] font-extrabold tracking-[-0.05em] text-slate-950 leading-tight md:text-[36px] lg:text-[44px]">
+                {copy.pricing.title}
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+                {copy.pricing.description}
+              </p>
+            </div>
+
+            <div className="mx-auto mt-10 grid max-w-[1180px] grid-cols-1 items-stretch gap-5 md:grid-cols-3 md:gap-6">
+              {plans.map((plan) => (
+                <PricingCard
+                  key={plan.id}
+                  plan={plan}
+                  copy={copy.pricing}
+                  locale={locale}
+                  isPopular={plan.name.toLowerCase() === 'growth'}
+                />
               ))}
             </div>
           </div>
         </section>
 
-        <section className="px-4 pb-20 pt-10 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-4xl rounded-[32px] border border-violet-200 bg-gradient-to-br from-violet-600 via-indigo-500 to-sky-500 px-6 py-12 text-center text-white shadow-[0_35px_90px_-35px_rgba(79,70,229,0.5)] sm:px-8 lg:px-12">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-violet-100">
-              Ready to begin
-            </p>
-            <h2 className="mt-4 text-3xl font-bold tracking-[-0.05em] sm:text-4xl">
-              Ready to Give Your Business a Better Home Online?
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-base text-violet-50/90 sm:text-lg">
-              Start building your Storefy workspace and bring your business into
-              a more organized online experience.
-            </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Button
-                asChild
-                size="lg"
-                className="bg-white text-violet-700 hover:bg-violet-50 hover:text-violet-700"
-              >
-                <Link href="/auth/signup">Start Free</Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                size="lg"
-                className="border-white/30 bg-white/10 text-white hover:bg-white/15 hover:text-white"
-              >
-                <Link href="/auth/login">Sign in</Link>
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        <section id="faq" className="px-4 pb-20 sm:px-6 lg:px-8">
+        <section id="faq" className="scroll-section px-4 pb-20 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-4xl">
             <div className="mx-auto max-w-2xl text-center">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-700">
-                FAQ
+                {copy.faq.eyebrow}
               </p>
               <h2 className="mt-4 text-3xl font-bold tracking-[-0.05em] text-slate-900 sm:text-4xl">
-                Questions, answered clearly.
+                {copy.faq.title}
               </h2>
             </div>
 
             <div className="mt-10 rounded-[28px] border border-slate-200 bg-white/80 p-3 shadow-[0_18px_50px_-35px_rgba(15,23,42,0.25)] sm:p-5">
               <Accordion.Root type="single" collapsible className="space-y-3">
-                {faqs.map((faq) => (
+                {copy.faq.items.map((faq) => (
                   <Accordion.Item
                     key={faq.question}
                     value={faq.question}
@@ -1002,6 +837,37 @@ export function LandingPage() {
             </div>
           </div>
         </section>
+
+        <section className="px-4 pb-20 pt-2 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-4xl rounded-[32px] border border-violet-200 bg-gradient-to-br from-violet-700 via-violet-700 to-indigo-700 px-6 py-12 text-center text-white shadow-[0_30px_80px_-35px_rgba(79,70,229,0.45)] sm:px-8 lg:px-12">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-violet-100">
+              {copy.callToAction.eyebrow}
+            </p>
+            <h2 className="mt-4 text-3xl font-bold tracking-[-0.05em] sm:text-4xl">
+              {copy.callToAction.title}
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-base text-violet-50/90 sm:text-lg">
+              {copy.callToAction.description}
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Button
+                asChild
+                size="lg"
+                className="bg-white text-violet-700 hover:bg-violet-50 hover:text-violet-700"
+              >
+                <Link href="/auth/signup">{copy.nav.startFree}</Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="border-white/30 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+              >
+                <Link href="/auth/login">{copy.nav.signIn}</Link>
+              </Button>
+            </div>
+          </div>
+        </section>
       </main>
 
       <footer className="bg-[#6333EA] px-4 py-12 text-white sm:px-6 lg:px-8">
@@ -1012,7 +878,7 @@ export function LandingPage() {
                 <div className="relative h-10 w-10 overflow-hidden bg-transparent">
                   <Image
                     src="/storefy-LOGO.png"
-                    alt="Storefy logo"
+                    alt={copy.accessibility.logo}
                     fill
                     className="object-contain"
                     priority
@@ -1023,15 +889,13 @@ export function LandingPage() {
                 </span>
               </div>
               <p className="mt-4 max-w-sm text-sm leading-6 text-violet-100">
-                Storefy helps small businesses turn Facebook-based selling into
-                a professional online store — with products, orders, and
-                storefront management in one place.
+                {copy.footer.description}
               </p>
             </div>
 
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-100">
-                Quick Links
+                {copy.footer.quickLinks}
               </p>
               <ul className="mt-4 space-y-3 text-sm text-violet-50">
                 <li>
@@ -1039,7 +903,7 @@ export function LandingPage() {
                     href="#features"
                     className="transition-colors hover:text-white"
                   >
-                    Features
+                    {copy.nav.features}
                   </Link>
                 </li>
                 <li>
@@ -1047,7 +911,7 @@ export function LandingPage() {
                     href="#how-it-works"
                     className="transition-colors hover:text-white"
                   >
-                    How It Works
+                    {copy.nav.howItWorks}
                   </Link>
                 </li>
                 <li>
@@ -1055,7 +919,7 @@ export function LandingPage() {
                     href="#pricing"
                     className="transition-colors hover:text-white"
                   >
-                    Pricing
+                    {copy.nav.pricing}
                   </Link>
                 </li>
                 <li>
@@ -1063,7 +927,7 @@ export function LandingPage() {
                     href="#faq"
                     className="transition-colors hover:text-white"
                   >
-                    FAQ
+                    {copy.nav.faq}
                   </Link>
                 </li>
                 <li>
@@ -1071,7 +935,7 @@ export function LandingPage() {
                     href="/auth/login"
                     className="transition-colors hover:text-white"
                   >
-                    Sign In
+                    {copy.nav.signIn}
                   </Link>
                 </li>
               </ul>
@@ -1079,7 +943,7 @@ export function LandingPage() {
 
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-100">
-                Get in Touch
+                {copy.footer.contact}
               </p>
               <ul className="mt-4 space-y-4 text-sm text-violet-50">
                 <li className="flex items-center gap-3">
@@ -1088,7 +952,7 @@ export function LandingPage() {
                     href="/auth/login"
                     className="transition-colors hover:text-white"
                   >
-                    Contact via app
+                    {copy.footer.contactViaApp}
                   </Link>
                 </li>
                 <li className="flex items-center gap-3">
@@ -1105,7 +969,7 @@ export function LandingPage() {
                 <li className="flex items-center gap-3">
                   <Globe className="h-4 w-4 text-violet-200" />
                   <Link href="/" className="transition-colors hover:text-white">
-                    Storefy website
+                    {copy.footer.website}
                   </Link>
                 </li>
               </ul>
@@ -1114,14 +978,14 @@ export function LandingPage() {
 
           <div className="mt-10 flex flex-col gap-4 border-t border-white/20 pt-5 md:flex-row md:items-center md:justify-between">
             <p className="text-sm text-violet-100">
-              © {new Date().getFullYear()} Storefy. All rights reserved.
+              © {new Date().getFullYear()} Storefy. {copy.footer.allRightsReserved}
             </p>
             <div className="flex items-center gap-3 text-violet-100">
               <a
                 href="https://facebook.com"
                 target="_blank"
                 rel="noreferrer"
-                aria-label="Facebook"
+                aria-label={copy.accessibility.facebook}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/5 transition-colors hover:bg-white/10 hover:text-white"
               >
                 <Facebook className="h-4 w-4" />
@@ -1130,7 +994,7 @@ export function LandingPage() {
                 href="https://instagram.com"
                 target="_blank"
                 rel="noreferrer"
-                aria-label="Instagram"
+                aria-label={copy.accessibility.instagram}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/5 transition-colors hover:bg-white/10 hover:text-white"
               >
                 <Instagram className="h-4 w-4" />

@@ -168,6 +168,17 @@ body {
   to { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes showcase-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[showcase-in"] {
+    animation: none !important;
+  }
+}
+
 @keyframes accordion-down {
   from { height: 0; }
   to { height: var(--radix-accordion-content-height); }
@@ -245,6 +256,20 @@ body {
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
+}
+/* === Smooth scrolling for in-page navigation === */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+.scroll-section {
+  scroll-margin-top: 80px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
