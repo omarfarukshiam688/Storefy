@@ -592,7 +592,7 @@ export function LandingPage({
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-700">
                 {copy.featureSection.eyebrow}
               </p>
-              <h2 className="mt-4 text-4xl font-extrabold leading-[1.25] tracking-[-0.035em] text-slate-950 sm:text-5xl">
+              <h2 className="mt-4 text-4xl font-extrabold leading-[1.25] tracking-[-0.035em] text-slate-950 sm:text-5xl whitespace-pre-line">
                 {copy.featureSection.title}
               </h2>
               <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">

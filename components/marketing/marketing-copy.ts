@@ -79,7 +79,8 @@ const english = {
   },
   featureSection: {
     eyebrow: 'Features',
-    title: 'The essential tools to run your business, all in one place',
+    title: `The Essential Tools to Run your Business
+All in one Place`,
     description:
       'Organize your storefront, products, orders, and daily work in one workspace.',
     seeMore: 'See More Features',
