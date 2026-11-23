@@ -414,3 +414,97 @@ export interface SearchResultItem {
   href: string;
   meta?: string;
 }
+
+export interface DocumentationSection {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  display_order: number;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DocumentationPage {
+  id: string;
+  section_id: string;
+  title: string;
+  slug: string;
+  content: string;
+  excerpt: string | null;
+  cover_image_path: string | null;
+  display_order: number;
+  is_published: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BlogCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  display_order: number;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type VideoPlatform = 'youtube' | 'facebook';
+
+export interface BlogVideo {
+  id: string;
+  category_id: string | null;
+  title: string;
+  slug: string;
+  description: string | null;
+  thumbnail_path: string;
+  video_platform: VideoPlatform;
+  video_url: string;
+  is_published: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BlogArticle {
+  id: string;
+  category_id: string | null;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  content: string;
+  cover_image_path: string | null;
+  author_name: string | null;
+  is_published: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ChangelogEntryType = 'feature' | 'improvement' | 'bug_fix' | 'security';
+
+export interface ChangelogRelease {
+  id: string;
+  version: string;
+  release_date: string;
+  summary: string | null;
+  image_path: string | null;
+  is_published: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChangelogEntry {
+  id: string;
+  release_id: string;
+  type: ChangelogEntryType;
+  title: string;
+  description: string | null;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
