@@ -1,5 +1,4 @@
-import Image from 'next/image';
-import { AuthPanel } from '@/components/auth/auth-panel';
+import { LegalFooterLinks } from '@/components/marketing/legal-footer-links';
 
 export default function AuthLayout({
   children,
@@ -7,27 +6,18 @@ export default function AuthLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex min-h-screen flex-col bg-white lg:flex-row">
-      <div className="hidden lg:flex lg:w-[54%] xl:w-[52%]">
-        <AuthPanel />
-      </div>
-
-      <div className="flex flex-1 flex-col items-center justify-center bg-white px-6 py-12 sm:px-8 lg:w-[46%] lg:p-10 xl:w-[48%]">
-        <div className="mb-12 flex items-center justify-center lg:hidden">
-          <div className="relative h-14 w-24 overflow-hidden bg-transparent sm:h-16 sm:w-28">
-            <Image
-              src="/storefy-LOGO.png"
-              alt="Storefy logo"
-              width={200}
-              height={100}
-              className="h-full w-full object-contain"
-              priority
-            />
-          </div>
-        </div>
-
-        <div className="w-full max-w-[430px]">{children}</div>
-      </div>
+    <div className="flex min-h-screen flex-col bg-auth-gradient text-slate-900">
+      <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
+        {children}
+      </main>
+      <nav
+        aria-label="আইনি ও তথ্যবিষয়ক পৃষ্ঠা"
+        className="mx-auto w-full max-w-5xl px-4 pb-5 sm:px-6"
+      >
+        <ul className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-slate-500">
+          <LegalFooterLinks linkClassName="rounded-sm transition-colors hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500" />
+        </ul>
+      </nav>
     </div>
   );
 }

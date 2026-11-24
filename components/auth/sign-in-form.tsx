@@ -64,13 +64,14 @@ export function SignInForm() {
 
   return (
     <AuthCard
-      title="Sign in to Storefy"
-      description="Enter your credentials to access your account"
-      className="rounded-[26px] border border-slate-200 bg-white/90 p-7 shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur-sm sm:p-8"
+      lang="bn"
+      title="Storefy-তে সাইন ইন করুন"
+      description="আপনার অ্যাকাউন্টে প্রবেশ করতে ইমেইল ও পাসওয়ার্ড লিখুন।"
+      className="font-[family-name:var(--font-noto-bengali)]"
     >
       <form onSubmit={onSubmit} className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email" className="font-medium text-slate-700">ইমেইল ঠিকানা</Label>
           <Input
             id="email"
             name="email"
@@ -78,13 +79,19 @@ export function SignInForm() {
             placeholder="name@example.com"
             autoComplete="email"
             disabled={isSubmitting || isLoading}
+            aria-invalid={Boolean(errors.email)}
+            aria-describedby={errors.email ? "login-email-help login-email-error" : "login-email-help"}
+            className="h-12 rounded-xl border-slate-200/90 bg-white px-4 text-base shadow-none focus-visible:border-primary focus-visible:ring-primary/15 sm:text-sm"
           />
+          <p id="login-email-help" className="text-xs leading-5 text-muted-foreground">
+            আপনার Storefy অ্যাকাউন্টে ব্যবহার করা ইমেইল ঠিকানা লিখুন।
+          </p>
           {errors.email && (
-            <p className="text-sm text-destructive">{errors.email}</p>
+            <p id="login-email-error" role="alert" className="text-sm font-medium text-destructive">{errors.email}</p>
           )}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password" className="font-medium text-slate-700">পাসওয়ার্ড</Label>
           <div className="relative">
             <Input
               id="password"
@@ -93,15 +100,18 @@ export function SignInForm() {
               placeholder="••••••••"
               autoComplete="current-password"
               disabled={isSubmitting || isLoading}
-              className="pr-10"
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby={errors.password ? "login-password-help login-password-error" : "login-password-help"}
+              className="h-12 rounded-xl border-slate-200/90 bg-white px-4 pr-12 text-base shadow-none focus-visible:border-primary focus-visible:ring-primary/15 sm:text-sm"
             />
             <Button
               type="button"
               variant="ghost"
-              size="sm"
-              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+              size="icon"
+              className="absolute right-1 top-1/2 h-10 w-10 -translate-y-1/2 rounded-lg text-slate-500 transition-colors hover:bg-violet-50 hover:text-violet-700 active:scale-100"
               onClick={() => setShowPassword((prev) => !prev)}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখান'}
+              disabled={isSubmitting || isLoading}
             >
               {showPassword ? (
                 <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -110,36 +120,39 @@ export function SignInForm() {
               )}
             </Button>
           </div>
+          <p id="login-password-help" className="text-xs leading-5 text-muted-foreground">
+            আপনার অ্যাকাউন্টের পাসওয়ার্ড লিখুন।
+          </p>
           {errors.password && (
-            <p className="text-sm text-destructive">{errors.password}</p>
+            <p id="login-password-error" role="alert" className="text-sm font-medium text-destructive">{errors.password}</p>
           )}
         </div>
         <div className="flex items-center justify-between">
           <Button
             type="button"
             variant="link"
-            className="h-auto p-0 text-xs"
-              onClick={() => router.push('/auth/forgot-password')}
+            className="h-auto p-0 text-sm font-medium"
+            onClick={() => router.push('/auth/forgot-password')}
           >
-            Forgot password?
+            পাসওয়ার্ড ভুলে গেছেন?
           </Button>
         </div>
         <Button
           type="submit"
-          className="w-full border-0 bg-gradient-to-r from-[#47b9f6] via-[#5b7ef5] to-[#4a5ae4] text-white shadow-lg shadow-[#4a5ae4]/25 hover:brightness-105 hover:shadow-xl hover:shadow-[#4a5ae4]/30"
+          className="h-12 w-full rounded-xl bg-gradient-to-r from-violet-700 to-indigo-600 font-medium text-white shadow-md shadow-violet-900/20 transition-[filter,box-shadow] duration-150 hover:brightness-105 hover:shadow-lg focus-visible:ring-primary/40 active:scale-100"
           disabled={isSubmitting || isLoading}
         >
-          {isSubmitting ? 'Signing in...' : 'Sign in'}
+          {isSubmitting ? 'সাইন ইন হচ্ছে…' : 'সাইন ইন করুন'}
         </Button>
         <p className="text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{' '}
+          এখনো অ্যাকাউন্ট নেই?{' '}
           <Button
             type="button"
             variant="link"
-            className="h-auto p-0"
-            onClick={() => router.push('/signup')}
+            className="h-auto p-0 font-medium"
+            onClick={() => router.push('/auth/signup')}
           >
-            Sign up
+            অ্যাকাউন্ট তৈরি করুন
           </Button>
         </p>
       </form>

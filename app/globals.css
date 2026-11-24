@@ -112,6 +112,15 @@ body {
     hsl(var(--background));
 }
 
+.bg-auth-gradient {
+  background: linear-gradient(
+    112deg,
+    color-mix(in srgb, hsl(var(--atmosphere-cyan)) 35%, #86c3be) 0%,
+    color-mix(in srgb, hsl(var(--atmosphere-sky)) 60%, #b2c9dc) 52%,
+    color-mix(in srgb, hsl(var(--primary)) 18%, #fff) 100%
+  );
+}
+
 /* === Glass Surfaces === */
 .glass {
   background: hsl(0 0% 100% / 0.72);
